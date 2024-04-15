@@ -8,17 +8,45 @@ This repo contains a training about [crossplane.io](https://www.crossplane.io/) 
 AWS iam user with rights to deploy S3, IAM roles, EC2 instances, VPCs & networking components (Subnets, SecurityGroups & Rules, etc), EKS clusters & node groups.
 
 
-### CLI tools: kind, helm, kubectl, AWS CLI
+### CLI tools: kind, helm, kubectl, AWS CLI, k9s
 
 First be sure to have kind, the package manager Helm and kubectl installed:
 
 ```shell
+# Mac
 brew install kind helm kubectl
+
+# Manjaro
+pamac install kind-bin helm kubectl-bin
 ```
 
-Also [install aws CLI and configure it](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
+Also [install aws CLI and configure it](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html):
+
+```shell
+# Mac
+brew install awscli
+
+# Manjaro
+pamac install aws-cli 
+```
 
 The command `aws configure` should work on your system.
+
+Additionally we should have the [K8s workbench k9s](https://k9scli.io/) in place:
+
+```shell
+# See https://k9scli.io/topics/install/
+# Mac / Linux
+brew install derailed/k9s/k9s
+
+# Manjaro
+pamac install k9s
+```
+
+Now before working with Crossplane, let's prepare our console a bit. Using `k9s` you will be able to get much more insights into what Crossplane is doing! Here's my setup using a tiling Console using Tilix for example:
+
+![](docs/k8s-workbench-k9s-tiling-terminal.png)
+
 
 
 ### A local K8s cluster with kind & CLI tools
@@ -32,6 +60,7 @@ Spin up a local kind cluster
 ```shell
 kind create cluster --image kindest/node:v1.29.2 --wait 5m
 ```
+
 
 
 ### Install Crossplane CLI
@@ -504,16 +533,30 @@ spec:
     region: eu-central-1
 ```
 
+> Now before applying the Managed Resource, let's have a look if our terminal is ready: Check the right pane in `k9s` and type `:events` to see the management cluster events there. Also press `Shift + L` to see the latest events on top. More [shortcuts in k9s can be found here](https://www.hackingnote.com/en/cheatsheets/k9s/).
+
+
 When you're ready apply it to your management cluster:
 
 ```shell
 kubectl apply -f infrastructure/s3/simple-bucket.yaml
 ```
 
+You should see a `CreatedExternalResource` event in `k9s`.
+
+
 Check [your AWS Console!](https://eu-central-1.console.aws.amazon.com/s3) Your first Crossplane managed infrastructure resource should come alive.
 
 ![](docs/aws-console-initial-bucket-deployed.png)
 
+
+After having seen the Bucket beeing deployed we also want to know how to delete it again. Therefore run:
+
+```shell
+kubectl delete -f infrastructure/s3/simple-bucket.yaml
+```
+
+Again there should be an Event in `k9s` visible: a `DeletedExternalResource`.
 
 
 
@@ -522,16 +565,39 @@ Check [your AWS Console!](https://eu-central-1.console.aws.amazon.com/s3) Your f
 crossplane CLI: Validierung von MRs gegen Provider-Schemas
 
 
+
+
+
+
 ### 1.6 Hands-On: Using multiple Managed Resources (public accessible S3 Bucket)
 
-Hands-on: Nutzung Managed Resources am Beispiel AWS S3, Provisionierung, Erweiterung um public Access (multiple Managed Resources)
+Now having a simple S3 Bucket already deployed, let's try to create a publicly accessible S3 Bucket using Crossplane Managed Resources. Therefore in `infrastructure/s3` create a new file `public-bucket.yaml`.
+
+
+TODO: hints for public Bucket
+
+
+https://github.com/aws/aws-cdk/issues/25288#issuecomment-1522011311
+
+https://doc.crds.dev/github.com/crossplane/provider-aws/s3.aws.crossplane.io/Bucket/v1beta1@v0.39.0
+
+https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-policy-language-overview.html
+
+https://stackoverflow.com/questions/76097031/aws-s3-bucket-cannot-have-acls-set-with-objectownerships-bucketownerenforced-s 
+
+https://marketplace.upbound.io/providers/upbound/provider-aws/v0.34.0/resources/s3.aws.upbound.io/BucketPublicAccessBlock/v1beta1 
+
+
+According to https://github.com/hashicorp/terraform-provider-aws/issues/28353 and https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_acl we need to separate `Bucket` creation from `BucketPublicAccessBlock`, `BucketOwnershipControls` and `BucketACL` - which should now be available finally leveraging the Upbound AWS Provider:
+
+
 
 
 ```yaml
 apiVersion: s3.aws.upbound.io/v1beta1
 kind: Bucket
 metadata:
-  name: crossplane-argocd-s3-bucket
+  name: crossplane-training-yourNameHere
 spec:
   forProvider:
     region: eu-central-1
@@ -541,7 +607,7 @@ spec:
 apiVersion: s3.aws.upbound.io/v1beta1
 kind: BucketPublicAccessBlock
 metadata:
-  name: crossplane-argocd-s3-bucket-pab
+  name: crossplane-training-yourNameHere-pab
 spec:
   forProvider:
     blockPublicAcls: false
@@ -549,42 +615,42 @@ spec:
     ignorePublicAcls: false
     restrictPublicBuckets: false
     bucketRef: 
-      name: crossplane-argocd-s3-bucket
+      name: crossplane-training-yourNameHere
     region: eu-central-1
 ---
 apiVersion: s3.aws.upbound.io/v1beta1
 kind: BucketOwnershipControls
 metadata:
-  name: crossplane-argocd-s3-bucket-osc
+  name: crossplane-training-yourNameHere-osc
 spec:
   forProvider:
     rule:
       - objectOwnership: ObjectWriter
     bucketRef: 
-      name: crossplane-argocd-s3-bucket
+      name: crossplane-training-yourNameHere
     region: eu-central-1
 ---
 apiVersion: s3.aws.upbound.io/v1beta1
 kind: BucketACL
 metadata:
-  name: crossplane-argocd-s3-bucket-acl
+  name: crossplane-training-yourNameHere-acl
 spec:
   forProvider:
     acl: "public-read"
     bucketRef: 
-      name: crossplane-argocd-s3-bucket
+      name: crossplane-training-yourNameHere
     region: eu-central-1
 ---
 apiVersion: s3.aws.upbound.io/v1beta1
 kind: BucketWebsiteConfiguration
 metadata:
-  name: crossplane-argocd-s3-bucket-websiteconf
+  name: crossplane-training-yourNameHere-websiteconf
 spec:
   forProvider:
     indexDocument:
       - suffix: index.html
     bucketRef: 
-      name: crossplane-argocd-s3-bucket
+      name: crossplane-training-yourNameHere
     region: eu-central-1
 ```
 
@@ -592,7 +658,14 @@ spec:
 
 Using multiple Managed Resources without Compositions is possible... but :)
 
-`managed-s3-public`
+
+
+
+After having seen the Bucket beeing deployed we also want to know how to delete it again. Therefore run:
+
+```shell
+kubectl delete -f infrastructure/s3/public-bucket.yaml
+```
 
 
 
@@ -644,7 +717,7 @@ Note that Crossplane will be automatically extended this section. Therefore the 
     status.connectionDetails
 
 
-So our Composite Resource Definition (XRD) for our S3 Bucket could look like [crossplane-contrib/provider-aws/s3/definition.yaml](crossplane-contrib/provider-aws/s3/definition.yaml):
+Now create a new directory `apis/s3` with a new file `definition.yaml`. 
 
 ```yaml
 apiVersion: apiextensions.crossplane.io/v1
@@ -673,6 +746,7 @@ spec:
     name: objectstorage-composition
 
   versions:
+  # This version should only change, when the parameters defined also change - and thus create a new version
   - name: v1alpha1
     served: true
     referenceable: true
@@ -703,7 +777,15 @@ spec:
 Install the XRD into our cluster with:
 
 ```shell
-kubectl apply -f crossplane-contrib/provider-aws/s3/definition.yaml
+kubectl apply -f apis/s3/definition.yaml
+```
+
+Now the XRD should be installed:
+
+```shell
+kubectl get compositeresourcedefinition
+NAME                                       ESTABLISHED   OFFERED   AGE
+xobjectstorages.crossplane.jonashackt.io   True          True      4d2h
 ```
 
 We can double check the CRDs beeing created with `kubectl get crds` and filter them using `grep` to our group name `crossplane.jonashackt.io`:
@@ -723,16 +805,136 @@ Aufbau & Entwicklung von XRDs (Kubernetes CRDs)
 
 ### 2.3 Hands-On: Building your first Composition
 
-`composition-s3`
+The main work in Crossplane has to be done crafting the Compositions. This is because they interact with the infrastructure primitives the cloud provider APIs provide.
 
-Hands-On: Entwicklung einer ersten Composition auf Basis einer MRs
+Detailled docs to many of the possible manifest configurations can be found here https://docs.crossplane.io/latest/concepts/compositions/
 
 
-### 2.4 Hands-On: Crafting your first XR/Claim (AWS S3)
+Now create a new file `composition.yaml` inside `apis/s3`:
 
-Entwicklung von XRs bzw. Claims
+```yaml
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: objectstorage-composition
+  labels:
+    # An optional convention is to include a label of the XRD. This allows
+    # easy discovery of compatible Compositions.
+    crossplane.io/xrd: xobjectstorages.crossplane.jonashackt.io
+    # The following label marks this Composition for AWS. This label can 
+    # be used in 'compositionSelector' in an XR or Claim.
+    provider: aws
+spec:
+  # Each Composition must declare that it is compatible with a particular type
+  # of Composite Resource using its 'compositeTypeRef' field. The referenced
+  # version must be marked 'referenceable' in the XRD that defines the XR.
+  compositeTypeRef:
+    apiVersion: crossplane.jonashackt.io/v1alpha1
+    kind: XObjectStorage
+  
+  # When an XR is created in response to a claim Crossplane needs to know where
+  # it should create the XR's connection secret. This is configured using the
+  # 'writeConnectionSecretsToNamespace' field.
+  writeConnectionSecretsToNamespace: crossplane-system
+  
+  # Each Composition must specify at least one composed resource template.
+  resources:
+    # Providing a unique name for each entry is good practice.
+    # Only identifies the resources entry within the Composition. Required in future crossplane API versions.
+    - name: bucket
+      base:
+        # see https://marketplace.upbound.io/providers/upbound/provider-aws-s3/v1.3.1/resources/s3.aws.upbound.io/Bucket/v1beta1
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: Bucket
+        metadata: {}
+        spec:
+          deletionPolicy: Delete
+      
+      patches:
+        - fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "metadata.name"
+        - fromFieldPath: "spec.parameters.region"
+          toFieldPath: "spec.forProvider.region"
+```
+
+As you can see we now use the Managed Resource `Bucket` inside `spec.resources`. We also use so called `patches` to insert parameters into the Bucket. We'll have a deeper look into these Patches later. For now both should be already known from the Composite Resource Definition.
+
+Apply the Composition via:
+
+```shell
+kubectl apply -f apis/s3/composition.yaml
+```
+
+Have a look at your installed Composition via:
+
+```shell
+kubectl get composition
+NAME                        XR-KIND          XR-APIVERSION                       AGE
+objectstorage-composition   XObjectStorage   crossplane.jonashackt.io/v1alpha1   1m2s
+```
+
+Also have a look at the available revisions of your Compositions via `kubectl get compositionrevision`:
+
+```shell
+kubectl get compositionrevision
+NAME                                REVISION   XR-KIND          XR-APIVERSION                       AGE
+objectstorage-composition-a5bf2cb   1          XObjectStorage   crossplane.jonashackt.io/v1alpha1   1m4s
+```
+
+There's only one revision for now. We'll come back here later!
+
+
+
+
+
+
+
+### 2.4 Hands-On: Your first Composite Resource (XR) or Claim (XRC) (AWS S3)
+
+Crossplane could look quite intimidating when having a first look. There are few guides around to show how to approach a setup when using Crossplane the first time. You can choose between writing an XR __OR__ XRC! You don't need both, since the XR will be generated from the XRC, if you choose to craft a XRC.
+
+https://docs.crossplane.io/latest/concepts/composite-resources/
+
+Since we want to create a S3 Bucket, we create our first Composite Resource Claim - or simply Claim. Therefore create a new file `objectstorage.yaml` in `infrastructure/s3`:
+
+ here's an suggestion for an [claim.yaml](crossplane-contrib/provider-aws/s3/claim.yaml):
+
+```yaml
+# Use the spec.group/spec.versions[0].name defined in the XRD
+apiVersion: crossplane.jonashackt.io/v1alpha1
+kind: ObjectStorage
+metadata:
+  # Only claims are namespaced, unlike XRs.
+  namespace: default
+  name: managed-s3
+spec:
+  # The compositionRef specifies which Composition this XR will use to compose
+  # resources when it is created, updated, or deleted.
+  compositionRef:
+    name: objectstorage-composition
+  
+  # Parameters for the Composition to provide the Managed Resources (MR) with
+  # to create the actual infrastructure components
+  parameters:
+    bucketName: crossplane-training-yourNameHere
+    region: eu-central-1
+```
+
+
+Apply your first Claim via kubectl:
+
+```shell
+kubectl apply -f infrastructure/s3/objectstorage.yaml
+```
+
+Again in the AWS console your Bucket should show up:
+
+![](docs/aws-console-initial-bucket-deployed.png)
 
 > Your first Crossplane Composition (incl. it's MRs) should come alive.
+
+
+
 
 
 ### 2.5 Validate your Claims against XRDs
@@ -740,14 +942,199 @@ Entwicklung von XRs bzw. Claims
 crossplane CLI: Validierung von Claims gegen XRDs
 
 
-### 2.6 Compositions using multiple MRs: Patch & Transforms
+
+
+### 2.6 Troubleshooting your crossplane configuration
+
+When somthing goes wrong with the validation, this could look like this:
+
+```shell
+$ kubectl apply -f claim.yaml
+error: error validating "claim.yaml": error validating data: [ValidationError(S3Bucket.metadata): unknown field "crossplane.io/external-name" in io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta_v2, ValidationError(S3Bucket.spec): unknown field "parameters" in io.jonashackt.crossplane.v1alpha1.S3Bucket.spec, ValidationError(S3Bucket.spec.writeConnectionSecretToRef): missing required field "namespace" in io.jonashackt.crossplane.v1alpha1.S3Bucket.spec.writeConnectionSecretToRef, ValidationError(S3Bucket.spec): missing required field "bucketName" in io.jonashackt.crossplane.v1alpha1.S3Bucket.spec, ValidationError(S3Bucket.spec): missing required field "region" in io.jonashackt.crossplane.v1alpha1.S3Bucket.spec]; if you choose to ignore these errors, turn validation off with --validate=false
+```
+
+The Crossplane validation is a great way to debug your yaml configuration - it hints you to the actual problems that are still present.
+
+
+https://docs.crossplane.io/knowledge-base/guides/troubleshoot/
+
+> Per Kubernetes convention, Crossplane keeps errors close to the place they happen. This means that if your claim is not becoming ready due to an issue with your Composition or with a composed resource you’ll need to “follow the references” to find out why. Your claim will only tell you that the XR is not yet ready.
+
+
+The docs also tell us what they mean by "follow the references":
+
+* Find your XR by running `kubectl describe <claim-kind> <claim-metadata.name>` and look for its “Resource Ref” (aka `spec.resourceRef`).
+* Run `kubectl describe` on your XR. This is where you’ll find out about issues with the Composition you’re using, if any.
+* If there are no issues but your XR doesn’t seem to be becoming ready, take a look for the “Resource Refs” (or `spec.resourceRefs`) to find your composed resources.
+* Run `kubectl describe` on each referenced composed resource to determine whether it is ready and what issues, if any, it is encountering.
+
+
+
+
+
+
+### 2.7 Compositions using multiple MRs: Patch & Transforms
 
 Aufbau & Entwicklung von Compositions: Patch & Transforms
+
+TODO: Patch & Transforms
+
+
+
+
+
+
+
+
+
 
 
 ### 2.6 Hands-On: Extend your Compositions using multiple MRs
 
-Hands-On: Entwicklung einer Composition mit mehreren MRs
+Now let's enhance your already existant Composition using all the needed Managed Resources to provision a publicly accessible S3 Bucket (as we already did in [1.6 Hands-On: Using multiple Managed Resources (public accessible S3 Bucket)](#16-hands-on-using-multiple-managed-resources-public-accessible-s3-bucket)). Therefore add all addidional Managed Resources to the file `apis/s3/composition.yaml`.
+
+
+```yaml
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: objectstorage-composition
+  labels:
+    # An optional convention is to include a label of the XRD. This allows
+    # easy discovery of compatible Compositions.
+    crossplane.io/xrd: xobjectstorages.crossplane.jonashackt.io
+    # The following label marks this Composition for AWS. This label can 
+    # be used in 'compositionSelector' in an XR or Claim.
+    provider: aws
+spec:
+  # Each Composition must declare that it is compatible with a particular type
+  # of Composite Resource using its 'compositeTypeRef' field. The referenced
+  # version must be marked 'referenceable' in the XRD that defines the XR.
+  compositeTypeRef:
+    apiVersion: crossplane.jonashackt.io/v1alpha1
+    kind: XObjectStorage
+  
+  # When an XR is created in response to a claim Crossplane needs to know where
+  # it should create the XR's connection secret. This is configured using the
+  # 'writeConnectionSecretsToNamespace' field.
+  writeConnectionSecretsToNamespace: crossplane-system
+  
+  # Each Composition must specify at least one composed resource template.
+  resources:
+    # Providing a unique name for each entry is good practice.
+    # Only identifies the resources entry within the Composition. Required in future crossplane API versions.
+    - name: bucket
+      base:
+        # see https://marketplace.upbound.io/providers/upbound/provider-aws/v0.34.0/resources/s3.aws.upbound.io/Bucket/v1beta1
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: Bucket
+        metadata: {}
+        spec:
+          deletionPolicy: Delete
+      
+      patches:
+        - fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "metadata.name"
+        - fromFieldPath: "spec.parameters.region"
+          toFieldPath: "spec.forProvider.region"
+
+    - name: bucketpublicaccessblock
+      base:
+        # see https://marketplace.upbound.io/providers/upbound/provider-aws/v0.34.0/resources/s3.aws.upbound.io/BucketPublicAccessBlock/v1beta1
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: BucketPublicAccessBlock
+        spec:
+          forProvider:
+            blockPublicAcls: false
+            blockPublicPolicy: false
+            ignorePublicAcls: false
+            restrictPublicBuckets: false
+
+      patches:
+        - fromFieldPath: "spec.parameters.bucketPABName"
+          toFieldPath: "metadata.name"
+        - fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "spec.forProvider.bucketRef.name"
+        - fromFieldPath: "spec.parameters.region"
+          toFieldPath: "spec.forProvider.region"
+
+    - name: bucketownershipcontrols
+      base:
+        # see https://marketplace.upbound.io/providers/upbound/provider-aws/v0.34.0/resources/s3.aws.upbound.io/BucketOwnershipControls/v1beta1#doc:spec-forProvider-rule-objectOwnership
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: BucketOwnershipControls
+        spec:
+          forProvider:
+            rule:
+              - objectOwnership: ObjectWriter
+
+      patches:
+        - fromFieldPath: "spec.parameters.bucketOSCName"
+          toFieldPath: "metadata.name"
+        - fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "spec.forProvider.bucketRef.name"
+        - fromFieldPath: "spec.parameters.region"
+          toFieldPath: "spec.forProvider.region"
+
+    - name: bucketacl
+      base:
+        # see https://marketplace.upbound.io/providers/upbound/provider-aws/v0.34.0/resources/s3.aws.upbound.io/BucketACL/v1beta1
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: BucketACL
+        spec:
+          forProvider:
+            acl: "public-read"
+
+      patches:
+        - fromFieldPath: "spec.parameters.bucketAclName"
+          toFieldPath: "metadata.name"
+        - fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "spec.forProvider.bucketRef.name"
+        - fromFieldPath: "spec.parameters.region"
+          toFieldPath: "spec.forProvider.region"
+  
+    - name: bucketwebsiteconfiguration
+      base:
+        # see https://marketplace.upbound.io/providers/upbound/provider-aws/v0.34.0/resources/s3.aws.upbound.io/BucketWebsiteConfiguration/v1beta1
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: BucketWebsiteConfiguration
+        spec:
+          forProvider:
+            indexDocument:
+              - suffix: index.html
+
+      patches:
+        - fromFieldPath: "spec.parameters.bucketWebConfName"
+          toFieldPath: "metadata.name"
+        - fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "spec.forProvider.bucketRef.name"
+        - fromFieldPath: "spec.parameters.region"
+          toFieldPath: "spec.forProvider.region"
+
+  # If you find yourself repeating patches a lot you can group them as a named
+  # 'patch set' then use a PatchSet type patch to reference them.
+  #patchSets:
+```
+
+
+Let's create Composition via:
+
+```shell
+kubectl apply -f upbound/provider-aws-s3/composition.yaml
+```
+
+Now we should also see another Revision `2` of our Composition was installed (with additional resources). Therefore run `kubectl get compositionrevision`:
+
+```shell
+kubectl get compositionrevision
+NAME                                REVISION   XR-KIND          XR-APIVERSION                       AGE
+objectstorage-composition-4b6be94   2          XObjectStorage   crossplane.jonashackt.io/v1alpha1   2m42s
+objectstorage-composition-a5bf2cb   1          XObjectStorage   crossplane.jonashackt.io/v1alpha1   4d2h
+```
+
+
+
+
 
 
 > Discussion: Using Compositions vs. MR-only 

@@ -7,8 +7,24 @@ This repo contains a training about [crossplane.io](https://www.crossplane.io/) 
 
 AWS iam user with rights to deploy S3, IAM roles, EC2 instances, VPCs & networking components (Subnets, SecurityGroups & Rules, etc), EKS clusters & node groups.
 
-Be sure to have `kubectl`, `helm` & `kind` installed.
 
+### A local K8s cluster with kind & CLI tools
+
+In order to use Crossplane we'll need any kind of Kubernetes cluster to let it operate in. This management cluster with Crossplane installed will then provision the defined infrastructure. Using any managed Kubernetes cluster like EKS, AKS and so on is possible - or even a local [Minikube](https://minikube.sigs.k8s.io/docs/start/), [kind](https://kind.sigs.k8s.io) or [k3d](https://k3d.io/).
+
+> For this training we're using [kind](https://kind.sigs.k8s.io).
+
+First be sure to have kind, the package manager Helm and kubectl installed:
+
+```shell
+brew install kind helm kubectl
+```
+
+Now spin up a local kind cluster
+
+```shell
+kind create cluster --image kindest/node:v1.29.2 --wait 5m
+```
 
 
 ### Install Crossplane CLI
@@ -86,6 +102,33 @@ kubectl-kuttl version 0.15.0
 
 ### 1.1 Crossplane concepts: Managed Resources, Providers & Families, Configuration Packages
 
+Crossplane https://crossplane.io/ claims to be the "The cloud native control plane framework". It introduces a new way how to manage any cloud resource (beeing it Kubernetes-native or not). It's an alternative Infrastructure-as-Code tooling to Terraform, AWS CDK/Bicep or Pulumi and introduces a higher level of abstraction - based on Kubernetes CRDs. 
+
+Literally the best intro post to Crossplane for me was https://blog.crossplane.io/crossplane-vs-cloud-infrastructure-addons/ - here the real key benefits especially compared to other tools are described. Without marketing blabla. If you love deep dives, I can also recommend Nate Reid's blog https://vrelevant.net/ who works as Staff Solutions Engineer at Upbound.
+
+
+# Crossplane basic concepts
+
+https://crossplane.io/docs/v1.8/concepts/overview.html
+
+* [Managed Resourced (MR)](https://crossplane.io/docs/v1.8/concepts/managed-resources.html): Kubernetes custom resources (CRDs) that represent infrastructure primitives (mostly in cloud providers). All Crossplane Managed Resources could be found via https://doc.crds.dev/ 
+* [Composite Resources (XR)](https://crossplane.io/docs/v1.8/concepts/composition.html): compose Managed Resources into higher level infrastructure units (especially interesting for platform teams). They are defined by:
+    * a `CompositeResourceDefinition` (XRD) (which defines an OpenAPI schema the `Composition` needs to be conform to)
+    * (optional) `CompositeResourceClaims` (XRC) (which is an abstraction of the XR for the application team to consume) - but is fantastic to hold the exact configuration parameters for the concrete resources you want to provision
+    * a `Composition` that describes the actual infrastructure primitives aka `Managed Resources` used to build the Composite Resource. One XRD could have multiple Compositions - e.g. to one for every environment like development, stating and production
+    * and configured by a `Configuration`
+* [Packages](https://crossplane.io/docs/v1.8/concepts/packages.html): OCI container images to handle distribution, version updates, dependency management & permissions for Providers & Configurations. Packages were formerly named `Stacks`.
+    * [Providers](https://crossplane.io/docs/v1.8/concepts/providers.html): are Packages that bundle a set of Managed Resources & __a Controller to provision infrastructure resources__ - all providers can be found on GitHub, e.g. [provider-aws](https://github.com/crossplane-contrib/provider-aws) or on [docs.crds.dev](https://doc.crds.dev/github.com/crossplane/provider-aws). A [list of all available Providers](https://github.com/orgs/crossplane-contrib/repositories?type=all) can also be found on GitHub.
+    * [Configuration](https://crossplane.io/docs/v1.8/getting-started/create-configuration.html): define your own Composite Resources (XRs) & package them via `kubectl crossplane build configuration` (now they are a Package) - and push them to an OCI registry via `kubectl crossplane push configuration`. With this Configurations can also be easily installed into other Crossplane clusters.
+
+
+![composition-how-it-works](screenshots/composition-how-it-works.svg)
+
+
+
+
+
+
 IaC with control planes: what about state?
 
 The "management cluster"
@@ -96,6 +139,126 @@ Embedding Crossplane into GitOps processes
 
 
 ### 1.2 Hands-On: Create your first management cluster (kind)
+
+## Install Crossplane
+
+### Plain via Helm
+
+The Crossplane docs [tell us to use Helm for installation](https://docs.crossplane.io/latest/software/install/):
+
+```shell
+helm repo add crossplane-stable https://charts.crossplane.io/stable
+helm repo update
+
+helm upgrade --install crossplane --namespace crossplane-system --create-namespace crossplane-stable/crossplane
+```
+
+Using the appended `--create-namespace`, we don't need to explicitely create the namespace before running `helm upgrade`.
+
+
+### Renovate-powered installation via local Helm Chart
+
+As an Renovate-powered alternative we can [create our own simple [Chart.yaml](crossplane-install/Chart.yaml) to enable automatic updates](https://stackoverflow.com/a/71765472/4964553) of our installation if new crossplane versions get released:
+
+```yaml
+apiVersion: v2
+type: application
+name: crossplane
+version: 0.0.0 # unused
+appVersion: 0.0.0 # unused
+dependencies:
+  - name: crossplane
+    repository: https://charts.crossplane.io/stable
+    version: 1.15.1
+```
+
+To install Crossplane using our own `Chart.yaml` simply run:
+
+```shell
+helm dependency update crossplane-install
+helm upgrade --install crossplane --namespace crossplane-system crossplane-install --create-namespace
+```
+
+Be sure to exclude `charts` and `Chart.lock` files via [.gitignore](.gitignore):
+
+```shell
+# Exclude Helm charts lock and packages
+**/**/charts
+**/**/Chart.lock
+```
+
+
+### Check Crossplane installation
+
+Check Crossplane version installed with `helm list -n crossplane-system` :
+
+```shell
+$ helm list -n crossplane-system
+NAME      	NAMESPACE        	REVISION	UPDATED                              	STATUS  	CHART           	APP VERSION
+crossplane	crossplane-system	1       	2022-06-21 09:28:21.178357 +0200 CEST	deployed	crossplane-1.8.1	1.8.1
+```
+
+Before we can actually apply a Provider we have to make sure that crossplane is actually healthy and running. Therefore we can use the `kubectl wait` command like this:
+
+```shell
+kubectl wait --for=condition=ready pod -l app=crossplane --namespace crossplane-system --timeout=120s
+```
+
+Otherwise we will run into errors like this when applying a `Provider`:
+
+```shell
+error: resource mapping not found for name: "provider-aws" namespace: "" from "provider-aws.yaml": no matches for kind "Provider" in version "pkg.crossplane.io/v1"
+ensure CRDs are installed first
+```
+
+Finally check crossplane status with `kubectl get all -n crossplane-system`:
+
+```shell
+$ kubectl get all -n crossplane-system
+NAME                                           READY   STATUS    RESTARTS   AGE
+pod/crossplane-7c88c45998-d26wl                1/1     Running   0          69s
+pod/crossplane-rbac-manager-8466dfb7fc-db9rb   1/1     Running   0          69s
+
+NAME                                     TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
+service/crossplane-webhooks              ClusterIP   10.96.160.156   <none>        9443/TCP   4d
+
+NAME                                      READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/crossplane                1/1     1            1           69s
+deployment.apps/crossplane-rbac-manager   1/1     1            1           69s
+
+NAME                                                 DESIRED   CURRENT   READY   AGE
+replicaset.apps/crossplane-7c88c45998                1         1         1       69s
+replicaset.apps/crossplane-rbac-manager-8466dfb7fc   1         1         1       69s
+```
+
+> "The base Crossplane installation consists of two pods, the crossplane pod and the crossplane-rbac-manager pod. Before starting the core Crossplane container an init container runs. The init container installs the core Crossplane Custom Resource Definitions (CRDs), configures Crossplane webhooks and installs any supplied Providers or Configurations."" See https://docs.crossplane.io/latest/concepts/pods/
+
+Now we should be able to find some new Kubernetes API objects:
+
+```shell
+$ kubectl api-resources  | grep crossplane
+compositeresourcedefinitions               xrd,xrds     apiextensions.crossplane.io/v1         false        CompositeResourceDefinition
+compositionrevisions                       comprev      apiextensions.crossplane.io/v1         false        CompositionRevision
+compositions                               comp         apiextensions.crossplane.io/v1         false        Composition
+environmentconfigs                         envcfg       apiextensions.crossplane.io/v1alpha1   false        EnvironmentConfig
+usages                                                  apiextensions.crossplane.io/v1alpha1   false        Usage
+configurationrevisions                                  pkg.crossplane.io/v1                   false        ConfigurationRevision
+configurations                                          pkg.crossplane.io/v1                   false        Configuration
+controllerconfigs                                       pkg.crossplane.io/v1alpha1             false        ControllerConfig
+deploymentruntimeconfigs                                pkg.crossplane.io/v1beta1              false        DeploymentRuntimeConfig
+functionrevisions                                       pkg.crossplane.io/v1beta1              false        FunctionRevision
+functions                                               pkg.crossplane.io/v1beta1              false        Function
+locks                                                   pkg.crossplane.io/v1beta1              false        Lock
+providerrevisions                                       pkg.crossplane.io/v1                   false        ProviderRevision
+providers                                               pkg.crossplane.io/v1                   false        Provider
+storeconfigs                                            secrets.crossplane.io/v1alpha1         false        StoreConfig
+```
+
+
+
+
+
+
 
 Hands-on: Aufbau eines lokalen Managed Clusters mit Crossplane (Basis: kind)
 

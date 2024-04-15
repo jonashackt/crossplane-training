@@ -562,7 +562,43 @@ Again there should be an Event in `k9s` visible: a `DeletedExternalResource`.
 
 ### 1.5 Validate your MR against Provider schemes
 
-crossplane CLI: Validierung von MRs gegen Provider-Schemas
+#### 1.5.1 Validate Managed Resources against a Crossplane provider (family)
+
+We need to provide the provider's schemes.
+
+For example grab a Managed Resource (or multiple of them) and validate it against the AWS provider:
+
+```shell
+crossplane beta validate --cache-dir ~/.crossplane upbound/provider-aws/provider/provider-aws-s3.yaml infrastructure/s3/simple-bucket.yaml
+package schemas does not exist, downloading:  xpkg.upbound.io/upbound/provider-aws-s3:v1.1.0
+[✓] s3.aws.upbound.io/v1beta1, Kind=Bucket, crossplane-argocd-s3-bucket validated successfully
+[✓] s3.aws.upbound.io/v1beta1, Kind=BucketPublicAccessBlock, crossplane-argocd-s3-bucket-pab validated successfully
+[✓] s3.aws.upbound.io/v1beta1, Kind=BucketOwnershipControls, crossplane-argocd-s3-bucket-osc validated successfully
+[✓] s3.aws.upbound.io/v1beta1, Kind=BucketACL, crossplane-argocd-s3-bucket-acl validated successfully
+[✓] s3.aws.upbound.io/v1beta1, Kind=BucketWebsiteConfiguration, crossplane-argocd-s3-bucket-websiteconf validated successfully
+Total 5 resources: 0 missing schemas, 5 success cases, 0 failure cases
+```
+
+
+##### 1.5.2 Validate a full directory against XRDs or Provider schema
+
+We can also validate a full directory:
+
+```shell
+crossplane beta validate --cache-dir ~/.crossplane upbound/provider-aws/provider/provider-aws-s3.yaml infrastructure
+[!] could not find CRD/XRD for: crossplane.jonashackt.io/v1alpha1, Kind=ObjectStorage
+[!] could not find CRD/XRD for: apiextensions.crossplane.io/v1, Kind=Composition
+[!] could not find CRD/XRD for: pkg.crossplane.io/v1, Kind=Provider
+[!] could not find CRD/XRD for: aws.upbound.io/v1beta1, Kind=ProviderConfig
+[!] could not find CRD/XRD for: apiextensions.crossplane.io/v1, Kind=CompositeResourceDefinition
+[✓] s3.aws.upbound.io/v1beta1, Kind=Bucket, crossplane-argocd-s3-bucket validated successfully
+[✓] s3.aws.upbound.io/v1beta1, Kind=BucketPublicAccessBlock, crossplane-argocd-s3-bucket-pab validated successfully
+[✓] s3.aws.upbound.io/v1beta1, Kind=BucketOwnershipControls, crossplane-argocd-s3-bucket-osc validated successfully
+[✓] s3.aws.upbound.io/v1beta1, Kind=BucketACL, crossplane-argocd-s3-bucket-acl validated successfully
+[✓] s3.aws.upbound.io/v1beta1, Kind=BucketWebsiteConfiguration, crossplane-argocd-s3-bucket-websiteconf validated successfully
+Total 10 resources: 5 missing schemas, 5 success cases, 0 failure cases
+```
+
 
 
 
@@ -655,13 +691,33 @@ spec:
 ```
 
 
+### 1.7 Hands-On: Deploy a website
 
-Using multiple Managed Resources without Compositions is possible... but :)
+Let's deploy a example app (a simple [index.html](static/index.html)) to our S3 Bucket using the aws CLI like this:
+
+```shell
+aws s3 sync static s3://crossplane-training-yourNameHere --acl public-read
+```
+
+Now we can open up http://crossplane-training-yourNameHere.s3-website.eu-central-1.amazonaws.com/ in our Browser and should see our app beeing deployed :)
 
 
 
 
-After having seen the Bucket beeing deployed we also want to know how to delete it again. Therefore run:
+
+Before removing the Claim again, we should remove our `index.html` - otherwise we'll run into errors like this:
+
+```shell
+  Warning  CannotDeleteExternalResource  37s (x16 over 57s)  managed/bucket.s3.aws.crossplane.io  (combined from similar events): operation error S3: DeleteBucket, https response error StatusCode: 409, RequestID: 0WHR906YZRF0YDSH, HostID: x7cz2iYF/8Ag2wKtKRZUy1j3hPk67tBUOTFeR//+grrD7plqQ5Zo6EecO70KOOgHKbY7hUyp9vU=, api error BucketNotEmpty: The bucket you tried to delete is not empty
+```
+
+So first delete the `index.html`:
+
+```shell
+aws s3 rm s3://crossplane-training-yourNameHere/index.html
+```
+
+Now also the S3 Bucket should be removeable via Crossplane:
 
 ```shell
 kubectl delete -f infrastructure/s3/public-bucket.yaml
@@ -669,10 +725,7 @@ kubectl delete -f infrastructure/s3/public-bucket.yaml
 
 
 
-
-
-
-
+> Discussion: Using multiple Managed Resources without Compositions is possible... but :)
 
 
 
@@ -939,7 +992,54 @@ Again in the AWS console your Bucket should show up:
 
 ### 2.5 Validate your Claims against XRDs
 
-crossplane CLI: Validierung von Claims gegen XRDs
+Before using the command have a look at the command reference: https://docs.crossplane.io/latest/cli/command-reference/#beta-validate:
+
+> The crossplane beta validate command validates compositions against provider or XRD schemas using the Kubernetes API server’s validation library.
+
+So let's grab a `definition.yaml` and validate a `claim.yaml` against it:
+
+```shell
+crossplane beta validate --cache-dir ~/.crossplane apis/s3/definition.yaml infrastructure/s3/objectstorage.yaml
+[✓] crossplane.jonashackt.io/v1alpha1, Kind=ObjectStorage, managed-upbound-s3 validated successfully
+Total 1 resources: 0 missing schemas, 1 success cases, 0 failure cases
+```
+
+To prevent the command from polluting our projects with `.crossplane` directories, we should also provide a `--cache-dir ~/.crossplane` flag, which will deposit the directory in the user profile folder.
+
+
+#### 2.5.1 Validate a full directory against XRDs or Provider schemes
+
+We can also validate a full directory:
+
+```shell
+crossplane beta validate --cache-dir ~/.crossplane apis/s3/definition.yaml upbound/provider-aws/provider
+[✓] crossplane.jonashackt.io/v1alpha1, Kind=ObjectStorage, managed-upbound-s3 validated successfully
+[!] could not find CRD/XRD for: apiextensions.crossplane.io/v1, Kind=Composition
+[!] could not find CRD/XRD for: pkg.crossplane.io/v1, Kind=Provider
+[!] could not find CRD/XRD for: aws.upbound.io/v1beta1, Kind=ProviderConfig
+[!] could not find CRD/XRD for: apiextensions.crossplane.io/v1, Kind=CompositeResourceDefinition
+[✓] s3.aws.upbound.io/v1beta1, Kind=Bucket, crossplane-argocd-s3-bucket validated successfully
+[✓] s3.aws.upbound.io/v1beta1, Kind=BucketPublicAccessBlock, crossplane-argocd-s3-bucket-pab validated successfully
+[✓] s3.aws.upbound.io/v1beta1, Kind=BucketOwnershipControls, crossplane-argocd-s3-bucket-osc validated successfully
+[✓] s3.aws.upbound.io/v1beta1, Kind=BucketACL, crossplane-argocd-s3-bucket-acl validated successfully
+[✓] s3.aws.upbound.io/v1beta1, Kind=BucketWebsiteConfiguration, crossplane-argocd-s3-bucket-websiteconf validated successfully
+Total 10 resources: 4 missing schemas, 6 success cases, 0 failure cases
+```
+
+
+#### 2.5.2 Composition Validation
+
+To be able to validate Compositions & XRs, we need another command in the game: `crossplane beta render`:
+
+https://docs.crossplane.io/latest/cli/command-reference/#validate-render-command-output
+
+> You can pipe the output of `crossplane beta render` into `crossplane beta validate` to validate complete Crossplane resource pipelines, including XRs, compositions and composition functions.
+
+Therefore we need to use the `--include-full-xr` command with `crossplane beta render` and the `-` option with `crossplane beta validate` like that:
+
+```shell
+crossplane beta render apis/s3/composition.yaml --include-full-xr | crossplane beta validate upbound/provider-aws/provider/provider-aws-s3.yaml -
+```
 
 
 
@@ -970,10 +1070,46 @@ The docs also tell us what they mean by "follow the references":
 
 
 
+### 2.7 Opt out of automatic Composition Updates in XRs/Claims
+
+Composition Updates are applied automatically to all XRs/Claims by default. [As the docs state](https://docs.crossplane.io/knowledge-base/guides/composition-revisions/):
+
+> If you have 10 PlatformDB XRs all using the big-platform-db Composition, all 10 of those XRs will be instantly updated in accordance with any updates you make to the big-platform-db Composition.
+
+So if we change a Composition, all the XRs will be updated. This can be a wanted behavior - or not at all.
+
+In the first steps with Crossplane you might encounter the issue already:
+
+```shell
+cannot compose resources: cannot parse base template of composed resource "securitygrouprule-cluster-inbound": cannot change the kind or group of a composed resource from ec2.aws.upbound .io/v1beta1, Kind=SecurityGroupRule to ec2.aws.upbound.io/v1beta1, Kind=SecurityGroupIngressRule (possible composed resource template mismatch) 
+```
+
+> Composition Revisions allow XRs to opt out of automatic updates.
+
+If you don't want Composition to do automatic updates, you need to [use Composition Revisions](https://docs.crossplane.io/knowledge-base/guides/composition-revisions/) in your XRs/XRCs via the `compositionUpdatePolicy: Manual` keyword:
+
+```yaml
+apiVersion: example.org/v1alpha1
+kind: PlatformDB
+metadata:
+  name: example
+spec:
+  parameters:
+    storageGB: 20
+  # The Manual policy specifies that you do not want this XR to update to the
+  # current CompositionRevision automatically.
+  compositionUpdatePolicy: Manual
+  compositionRef:
+    name: example
+  writeConnectionSecretToRef:
+    name: db-conn
+```
 
 
 
-### 2.7 Compositions using multiple MRs: Patch & Transforms
+
+
+### 2.8 Compositions using multiple MRs: Patch & Transforms
 
 Aufbau & Entwicklung von Compositions: Patch & Transforms
 
@@ -981,6 +1117,9 @@ TODO: Patch & Transforms
 
 
 
+https://github.com/awslabs/crossplane-on-eks?tab=readme-ov-file#features
+
+https://github.com/awslabs/crossplane-on-eks/blob/main/doc/patching-101.md
 
 
 
@@ -989,7 +1128,8 @@ TODO: Patch & Transforms
 
 
 
-### 2.6 Hands-On: Extend your Compositions using multiple MRs
+
+### 2.9 Hands-On: Extend your Compositions using multiple MRs
 
 Now let's enhance your already existant Composition using all the needed Managed Resources to provision a publicly accessible S3 Bucket (as we already did in [1.6 Hands-On: Using multiple Managed Resources (public accessible S3 Bucket)](#16-hands-on-using-multiple-managed-resources-public-accessible-s3-bucket)). Therefore add all addidional Managed Resources to the file `apis/s3/composition.yaml`.
 
@@ -2295,8 +2435,64 @@ Hands-On: Entwicklung einer ersten Nested Composition
 
 ### 6.1 Handling Provider upgrades in a GitOps fashion
 
+Imagine a provider beeing configured like this:
 
-### 6.2 Provider upgrades with Renovate
+```yaml
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-aws-ec2
+spec:
+  package: xpkg.upbound.io/upbound/provider-aws-ec2:v1.1.0
+  packagePullPolicy: Always
+  revisionActivationPolicy: Automatic
+  revisionHistoryLimit: 1
+```
+
+Now if `provider-aws-ec2:v1.1.1` gets released, the `revisionActivationPolicy: Automatic` will lead to a automatically upgraded provider.
+
+This can be great - or it can lead to a sitation, where the new provider version doesn't work as expected (e.g. because it presents a https://docs.crossplane.io/latest/concepts/providers/#unhealthypackagerevision) - and thus beeing rolled back, also automatically. This could lead to a situation, where the provider gets unusable from time to time.
+
+If we want to do Provider upgrades in a GitOps fashion through a git commit to a git repository, we should configure the `packagePullPolicy` to `IfNotPresent` instead of `Always` (which means " Check for new packages every minute and download any matching package that isn’t in the cache", see https://docs.crossplane.io/master/concepts/packages/#configuration-package-pull-policy) - BUT leave the `revisionActivationPolicy` to `Automatic`! Since otherwise, the Provider will never get active and healty! See https://docs.crossplane.io/master/concepts/packages/#revision-activation-policy), but I didn't find it documented that way!
+
+```yaml
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-aws-ec2
+spec:
+  package: xpkg.upbound.io/upbound/provider-aws-ec2:v1.1.0
+  packagePullPolicy: IfNotPresent # Only download the package if it isn’t in the cache.
+  revisionActivationPolicy: Automatic # Otherwise our Provider never gets activate & healthy
+  revisionHistoryLimit: 1
+```
+
+
+#### 6.2 Provider & Configuration Package Upgrades with Renovate
+
+Renovate supports Crossplane by the end of November 2023:
+
+* https://github.com/renovatebot/renovate/discussions/22363
+* merged PR https://github.com/renovatebot/renovate/pull/25911 & docs https://github.com/renovatebot/renovate/pull/25911/commits/d224eaeaee0283282d54bc86e2b7f3e7100de455
+
+The Renovate docs tell us how we can configure Crossplane support:
+
+https://docs.renovatebot.com/modules/manager/crossplane/
+
+> To use the crossplane manager you must set your own fileMatch pattern. The crossplane manager has no default fileMatch pattern, because there is no common filename or directory name convention for Crossplane YAML files. The crossplane manager supports these depTypes: configuration, function, provider
+
+So we always need to explicitely configure Renovate to let it handle our Crossplane Provider & Configuration Package updates for us!
+
+The simplest configuration would be:
+
+```yaml
+"crossplane": {
+    "fileMatch": ["\\.yaml$"]
+  }
+```
+
+It makes sense, if most of the files are for Crossplane.
+
 
 
 ### 6.3 Crossplane & ArgoCD

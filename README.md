@@ -691,6 +691,16 @@ spec:
 ```
 
 
+
+
+You may also want to validate the MRs against the Provider schemes again:
+
+```shell
+crossplane beta validate --cache-dir ~/.crossplane upbound/provider-aws/provider/provider-aws-s3.yaml infrastructure
+```
+
+
+
 ### 1.7 Hands-On: Deploy a website
 
 Let's deploy a example app (a simple [index.html](static/index.html)) to our S3 Bucket using the aws CLI like this:
@@ -1043,33 +1053,6 @@ crossplane beta render apis/s3/composition.yaml --include-full-xr | crossplane b
 
 
 
-
-### 2.6 Troubleshooting your crossplane configuration
-
-When somthing goes wrong with the validation, this could look like this:
-
-```shell
-$ kubectl apply -f claim.yaml
-error: error validating "claim.yaml": error validating data: [ValidationError(S3Bucket.metadata): unknown field "crossplane.io/external-name" in io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta_v2, ValidationError(S3Bucket.spec): unknown field "parameters" in io.jonashackt.crossplane.v1alpha1.S3Bucket.spec, ValidationError(S3Bucket.spec.writeConnectionSecretToRef): missing required field "namespace" in io.jonashackt.crossplane.v1alpha1.S3Bucket.spec.writeConnectionSecretToRef, ValidationError(S3Bucket.spec): missing required field "bucketName" in io.jonashackt.crossplane.v1alpha1.S3Bucket.spec, ValidationError(S3Bucket.spec): missing required field "region" in io.jonashackt.crossplane.v1alpha1.S3Bucket.spec]; if you choose to ignore these errors, turn validation off with --validate=false
-```
-
-The Crossplane validation is a great way to debug your yaml configuration - it hints you to the actual problems that are still present.
-
-
-https://docs.crossplane.io/knowledge-base/guides/troubleshoot/
-
-> Per Kubernetes convention, Crossplane keeps errors close to the place they happen. This means that if your claim is not becoming ready due to an issue with your Composition or with a composed resource you’ll need to “follow the references” to find out why. Your claim will only tell you that the XR is not yet ready.
-
-
-The docs also tell us what they mean by "follow the references":
-
-* Find your XR by running `kubectl describe <claim-kind> <claim-metadata.name>` and look for its “Resource Ref” (aka `spec.resourceRef`).
-* Run `kubectl describe` on your XR. This is where you’ll find out about issues with the Composition you’re using, if any.
-* If there are no issues but your XR doesn’t seem to be becoming ready, take a look for the “Resource Refs” (or `spec.resourceRefs`) to find your composed resources.
-* Run `kubectl describe` on each referenced composed resource to determine whether it is ready and what issues, if any, it is encountering.
-
-
-
 ### 2.7 Opt out of automatic Composition Updates in XRs/Claims
 
 Composition Updates are applied automatically to all XRs/Claims by default. [As the docs state](https://docs.crossplane.io/knowledge-base/guides/composition-revisions/):
@@ -1115,11 +1098,10 @@ Aufbau & Entwicklung von Compositions: Patch & Transforms
 
 TODO: Patch & Transforms
 
+https://docs.crossplane.io/latest/concepts/compositions/#changing-resource-fields
 
 
-https://github.com/awslabs/crossplane-on-eks?tab=readme-ov-file#features
-
-https://github.com/awslabs/crossplane-on-eks/blob/main/doc/patching-101.md
+? https://github.com/awslabs/crossplane-on-eks/blob/main/doc/patching-101.md
 
 
 
@@ -1278,6 +1260,36 @@ objectstorage-composition-a5bf2cb   1          XObjectStorage   crossplane.jonas
 
 
 > Discussion: Using Compositions vs. MR-only 
+
+
+### 2.10 Troubleshooting
+
+https://docs.crossplane.io/knowledge-base/guides/troubleshoot/
+
+When something goes wrong with the validation, this could look like this:
+
+```shell
+$ kubectl apply -f claim.yaml
+error: error validating "claim.yaml": error validating data: [ValidationError(S3Bucket.metadata): unknown field "crossplane.io/external-name" in io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta_v2, ValidationError(S3Bucket.spec): unknown field "parameters" in io.jonashackt.crossplane.v1alpha1.S3Bucket.spec, ValidationError(S3Bucket.spec.writeConnectionSecretToRef): missing required field "namespace" in io.jonashackt.crossplane.v1alpha1.S3Bucket.spec.writeConnectionSecretToRef, ValidationError(S3Bucket.spec): missing required field "bucketName" in io.jonashackt.crossplane.v1alpha1.S3Bucket.spec, ValidationError(S3Bucket.spec): missing required field "region" in io.jonashackt.crossplane.v1alpha1.S3Bucket.spec]; if you choose to ignore these errors, turn validation off with --validate=false
+```
+
+The Crossplane validation is a great way to debug your yaml configuration - it hints you to the actual problems that are still present.
+
+
+https://docs.crossplane.io/knowledge-base/guides/troubleshoot/
+
+> Per Kubernetes convention, Crossplane keeps errors close to the place they happen. This means that if your claim is not becoming ready due to an issue with your Composition or with a composed resource you’ll need to “follow the references” to find out why. Your claim will only tell you that the XR is not yet ready.
+
+
+The docs also tell us what they mean by "follow the references":
+
+* Find your XR by running `kubectl describe <claim-kind> <claim-metadata.name>` and look for its “Resource Ref” (aka `spec.resourceRef`).
+* Run `kubectl describe` on your XR. This is where you’ll find out about issues with the Composition you’re using, if any.
+* If there are no issues but your XR doesn’t seem to be becoming ready, take a look for the “Resource Refs” (or `spec.resourceRefs`) to find your composed resources.
+* Run `kubectl describe` on each referenced composed resource to determine whether it is ready and what issues, if any, it is encountering.
+
+
+
 
 
 
@@ -2431,7 +2443,7 @@ Hands-On: Entwicklung einer ersten Nested Composition
 
 
 
-# 6. Bootstrapping Crossplane using GitOps principles
+# 6. Crossplane & GitOps principles
 
 ### 6.1 Handling Provider upgrades in a GitOps fashion
 
@@ -2495,7 +2507,7 @@ It makes sense, if most of the files are for Crossplane.
 
 
 
-### 6.3 Crossplane & ArgoCD
+### 6.3 Bootstrapping Crossplane with ArgoCD
 
 
 
@@ -2506,3 +2518,11 @@ It makes sense, if most of the files are for Crossplane.
 Entwicklungs-Guidelines / typische Pitfalls
 
 Multi-Cloud Abstraktion
+
+
+### Custom Readiness checks
+
+[Custom readiness checks](https://docs.crossplane.io/latest/concepts/compositions/#resource-readiness-checks) allow Compositions to define what custom conditions to meet for a resource to be Ready.
+
+> By default Crossplane considers a Composite Resource or Claim as READY when the status of all created resource are Type: Ready and Status: True. Some resources, for example, a ProviderConfig, don’t have a Kubernetes status and are never considered Ready.
+

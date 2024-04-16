@@ -1,4 +1,4 @@
-< Back to [training overview](README.md)
+ [🔼 training overview](README.md)
 
 # 3. Working with Managed Resources
 
@@ -8,7 +8,7 @@ Let's create our first Crossplane Managed Resource, which should deploy a actual
 
 Therefore create a new directory `infrastructure/s3` and a file `simple-bucket.yaml`.
 
-Search [the Provider docs on the Upbound Marketplace ](https://marketplace.upbound.io/providers/upbound/provider-aws-s3)for the `Bucket` resource and create your first Managed Resource.
+> 📝 Use the Provider documentation from the Upbound Marketplace and search for the Managed Resource you want to use. As we're using the `provider-aws-s3` [head over to it's Provider docs](https://marketplace.upbound.io/providers/upbound/provider-aws-s3) and search for the `Bucket` resource.
 
 
 Example:
@@ -23,7 +23,7 @@ spec:
     region: eu-central-1
 ```
 
-> Now before applying the Managed Resource, let's have a look if our terminal is ready: Check the right pane in `k9s` and type `:events` to see the management cluster events there. Also press `Shift + L` to see the latest events on top. More [shortcuts in k9s can be found here](https://www.hackingnote.com/en/cheatsheets/k9s/).
+> 📝 Now before applying the Managed Resource, let's have a look if our terminal is ready: Check the right pane in `k9s` and type `:events` to see the management cluster events there. Also press `Shift + L` to see the latest events on top. More [shortcuts in k9s can be found here](https://www.hackingnote.com/en/cheatsheets/k9s/).
 
 
 When you're ready apply it to your management cluster:
@@ -52,6 +52,14 @@ Again there should be an Event in `k9s` visible: a `DeletedExternalResource`.
 
 ## 3.2 Validate your MR against Provider schemes
 
+From Crossplane CLI version 1.5 on there's also the way to pre-validate your Managed Resources against Provider schemes. The crossplane beta validate command [supports validating the following scenarios](https://docs.crossplane.io/latest/cli/command-reference/#beta-validate):
+
+* Validate a managed resource or composite resource against a Provider or XRD schema.
+* Use the output of crossplane beta render as validation input.
+* Validate an XRD against Kubernetes Common Expression Language (CEL) rules.
+* Validate resources against a directory of schemas.
+
+
 ### 3.2.1 Validate Managed Resources against a Crossplane provider
 
 We need to provide the provider's schemes.
@@ -68,6 +76,8 @@ package schemas does not exist, downloading:  xpkg.upbound.io/upbound/provider-a
 [✓] s3.aws.upbound.io/v1beta1, Kind=BucketWebsiteConfiguration, crossplane-argocd-s3-bucket-websiteconf validated successfully
 Total 5 resources: 0 missing schemas, 5 success cases, 0 failure cases
 ```
+
+> 📝 To prevent the command from polluting our projects with `.crossplane` directories, we should also provide a `--cache-dir ~/.crossplane` flag, which will deposit the directory in the user profile folder.
 
 
 ### 3.2.2 Validate a full directory against XRDs or Provider schema
@@ -96,25 +106,49 @@ Total 10 resources: 5 missing schemas, 5 success cases, 0 failure cases
 
 Now having a simple S3 Bucket already deployed, let's try to create a publicly accessible S3 Bucket using Crossplane Managed Resources. Therefore in `infrastructure/s3` create a new file `public-bucket.yaml`.
 
+Somewhere in April 2023 [it became way more complex to setup a S3 Bucket in AWS that is publicly accessible](https://stackoverflow.com/questions/76097031/aws-s3-bucket-cannot-have-acls-set-with-objectownerships-bucketownerenforced-s). Also [this GitHub issue comment](https://github.com/aws/aws-cdk/issues/25288#issuecomment-1522011311) describes what happened:
 
-TODO: hints for public Bucket
+> all newly created buckets in the Region will by default have S3 Block Public Access enabled and access control lists (ACLs) disabled.
 
+Therefore we need to use the Provider documentation from the Upbound Marketplace and search for the Managed Resource you want to use. As we're using the `provider-aws-s3` [head over to it's Provider docs](https://marketplace.upbound.io/providers/upbound/provider-aws-s3). This time we need to use multiple Managed Resources from this provider!
 
-https://github.com/aws/aws-cdk/issues/25288#issuecomment-1522011311
+> 📝 According to [this issue](https://github.com/hashicorp/terraform-provider-aws/issues/28353) and [these Terraform docs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_acl) we need to separate `Bucket` creation from `BucketPublicAccessBlock`, `BucketOwnershipControls`, `BucketACL` and `BucketWebsiteConfiguration`.
 
-https://doc.crds.dev/github.com/crossplane/provider-aws/s3.aws.crossplane.io/Bucket/v1beta1@v0.39.0
+> 📝 You may also want to validate the MRs against the Provider schemes again:
 
-https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-policy-language-overview.html
-
-https://stackoverflow.com/questions/76097031/aws-s3-bucket-cannot-have-acls-set-with-objectownerships-bucketownerenforced-s 
-
-https://marketplace.upbound.io/providers/upbound/provider-aws/v0.34.0/resources/s3.aws.upbound.io/BucketPublicAccessBlock/v1beta1 
-
-
-According to https://github.com/hashicorp/terraform-provider-aws/issues/28353 and https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_acl we need to separate `Bucket` creation from `BucketPublicAccessBlock`, `BucketOwnershipControls` and `BucketACL` - which should now be available finally leveraging the Upbound AWS Provider:
+```shell
+crossplane beta validate --cache-dir ~/.crossplane upbound/provider-aws/provider/provider-aws-s3.yaml infrastructure
+```
 
 
+When you're ready apply it to your management cluster:
 
+```shell
+kubectl apply -f infrastructure/s3/public-bucket.yaml
+```
+
+Have a look into the Events section of your `k9s`:
+
+![](docs/k9s-events-publicly-accessible-bucket.png)
+
+Also the AWS console should show the publicly accessible S3 Bucket after some time:
+
+![](docs/publicly-accessible-bucket.png)
+
+If you don't know what to do, have a look at the end of this section for the solution :)
+
+After having seen the Bucket beeing deployed we also want to know how to delete it again. Therefore run:
+
+```shell
+kubectl delete -f infrastructure/s3/simple-bucket.yaml
+```
+
+> 💡 Only, if you're really stuck or don't know what to do, here's a working solution:
+
+<details>
+  <summary>🚀 Expand to see a working solution</summary>
+
+[`infrastructure/s3/public-bucket.yaml`](infrastructure/s3/public-bucket.yaml):
 
 ```yaml
 apiVersion: s3.aws.upbound.io/v1beta1
@@ -176,15 +210,7 @@ spec:
       name: crossplane-training-yourNameHere
     region: eu-central-1
 ```
-
-
-
-
-You may also want to validate the MRs against the Provider schemes again:
-
-```shell
-crossplane beta validate --cache-dir ~/.crossplane upbound/provider-aws/provider/provider-aws-s3.yaml infrastructure
-```
+</details>
 
 
 
@@ -197,9 +223,6 @@ aws s3 sync static s3://crossplane-training-yourNameHere --acl public-read
 ```
 
 Now we can open up http://crossplane-training-yourNameHere.s3-website.eu-central-1.amazonaws.com/ in our Browser and should see our app beeing deployed :)
-
-
-
 
 
 Before removing the Claim again, we should remove our `index.html` - otherwise we'll run into errors like this:
@@ -222,4 +245,4 @@ kubectl delete -f infrastructure/s3/public-bucket.yaml
 
 
 
-> Discussion: Using multiple Managed Resources without Compositions is possible... but :)
+> 👥 Discussion: Using multiple Managed Resources without Compositions is possible... but :)

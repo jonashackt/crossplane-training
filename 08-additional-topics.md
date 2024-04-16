@@ -1,4 +1,4 @@
-< Back to [training overview](README.md)
+ [🔼 training overview](README.md)
 
 # 8. Additional Topics
 
@@ -39,16 +39,9 @@ spec:
 
 ## 8.2 Provider & Configuration Package Upgrades with Renovate
 
-Renovate supports Crossplane by the end of November 2023:
+[Renovate supports Crossplane by the end of November 2023](https://github.com/renovatebot/renovate/pull/25911). The Renovate docs [tell us how we can configure Crossplane support](https://docs.renovatebot.com/modules/manager/crossplane/):
 
-* https://github.com/renovatebot/renovate/discussions/22363
-* merged PR https://github.com/renovatebot/renovate/pull/25911 & docs https://github.com/renovatebot/renovate/pull/25911/commits/d224eaeaee0283282d54bc86e2b7f3e7100de455
-
-The Renovate docs tell us how we can configure Crossplane support:
-
-https://docs.renovatebot.com/modules/manager/crossplane/
-
-> To use the crossplane manager you must set your own fileMatch pattern. The crossplane manager has no default fileMatch pattern, because there is no common filename or directory name convention for Crossplane YAML files. The crossplane manager supports these depTypes: configuration, function, provider
+> 📝 To use the crossplane manager you must set your own fileMatch pattern. The crossplane manager has no default fileMatch pattern, because there is no common filename or directory name convention for Crossplane YAML files. The crossplane manager supports these depTypes: configuration, function, provider
 
 So we always need to explicitely configure Renovate to let it handle our Crossplane Provider & Configuration Package updates for us!
 
@@ -67,7 +60,7 @@ It makes sense, if most of the files are for Crossplane.
 
 [Custom readiness checks](https://docs.crossplane.io/latest/concepts/compositions/#resource-readiness-checks) allow Compositions to define what custom conditions to meet for a resource to be Ready.
 
-> By default Crossplane considers a Composite Resource or Claim as READY when the status of all created resource are Type: Ready and Status: True. Some resources, for example, a ProviderConfig, don’t have a Kubernetes status and are never considered Ready.
+> 📝 By default Crossplane considers a Composite Resource or Claim as READY when the status of all created resource are Type: Ready and Status: True. Some resources, for example, a ProviderConfig, don’t have a Kubernetes status and are never considered Ready.
 
 
 

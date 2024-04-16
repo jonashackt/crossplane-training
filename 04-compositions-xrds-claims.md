@@ -1,4 +1,4 @@
-< Back to [training overview](README.md)
+ [🔼 training overview](README.md)
 
 # 4. Compositions, XRDs & Claims
 
@@ -13,7 +13,7 @@ Was sind Composite Resources (XR), Claims, Composite Resource Definitions (XRD)?
 
 https://docs.crossplane.io/latest/concepts/composite-resource-definitions/
 
-> A CompositeResourceDefinition (or XRD) defines the type and schema of your XR. It lets Crossplane know that you want a particular kind of XR to exist, and what fields that XR should have.
+> 📝 A CompositeResourceDefinition (or XRD) defines the type and schema of your XR. It lets Crossplane know that you want a particular kind of XR to exist, and what fields that XR should have.
 
 Since defining your own CompositeResourceDefinitions and Compositions is the main work todo with Crossplane, it's always good to know the full Reference documentation which can be found here https://docs.crossplane.io/latest/concepts/compositions/
 
@@ -25,9 +25,54 @@ One of the things to know is that Crossplane automatically injects some common '
 
 ## 4.2 Create your first Composite Resource Definition (XRD)
 
-All possible fields an XRD can have [are documented in the docs](https://docs.crossplane.io/latest/concepts/composite-resource-definitions/).
+All possible fields an XRD can have [are documented in the docs](https://docs.crossplane.io/latest/concepts/composite-resource-definitions/). 
 
 The field `spec.versions.schema` must contain a OpenAPI schema, which is similar to the ones used by any Kubernetes CRDs. They determine what fields the XR (and Claim) will have. The full CRD documentation and a guide on how to write OpenAPI schemas [could be found in the Kubernetes docs](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/).
+
+
+### 4.2.1 Scaffold a Composite Resource Definition (XRD)
+
+When [starting to create a XRD](https://docs.upbound.io/xp-arch-framework/building-apis/building-apis-xrds/#authoring-an-xrd) you may want to start with this scaffold:
+
+```yaml
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: <plural-name>.<group>
+spec:
+  group: <group.example.com>
+  names:
+    kind: X-<kind-name>
+    plural: X-<kind-name-plural>
+  claimNames:
+    kind: <kind-name>
+    plural: <kind-name-plural>
+  versions:
+  - name: v1alpha1
+    served: true
+    referenceable: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              parameters:
+                type: object
+                properties:
+                  <to-do>
+            required:
+            - parameters
+          status:
+            type: object
+            properties:
+                <todo>
+```
+
+> 📝 The presence of the `spec.claimNames` makes this XRD claimable. If you don't want this Composite Resource to become claimable omit this field.
+
+> Crossplane composite resources are cluster-scoped objects, which means they’re not associated with any given namespace in your control plane. By making a composite resource claimable, this enables you to restrict users to different namespaces in your control plane and thereby improve isolation between them.
 
 Note that Crossplane will be automatically extended this section. Therefore the following fields are used by Crossplane and will be ignored if they're found in the schema:
 
@@ -39,7 +84,43 @@ Note that Crossplane will be automatically extended this section. Therefore the 
     status.connectionDetails
 
 
-Now create a new directory `apis/s3` with a new file `definition.yaml`. 
+### 4.2.2 Craft your XRD `objectstorage` for a AWS S3 Bucket
+
+
+Now create a new directory `apis/s3` with a new file `definition.yaml` and copy the contents of the scaffold yaml block above. Try to insert all the needed configuration yourself.
+
+For the `group` field use a unique domain name you or your company owns - like `crossplane.jonashackt.io`.
+
+Define 2 parameters that need to be defined by an XR/Claim: `bucketName` and `region`.
+
+If you're finished, install the XRD into our cluster with:
+
+```shell
+kubectl apply -f apis/s3/definition.yaml
+```
+
+Now the XRD should be installed:
+
+```shell
+kubectl get compositeresourcedefinition
+NAME                                       ESTABLISHED   OFFERED   AGE
+xobjectstorages.crossplane.jonashackt.io   True          True      4d2h
+```
+
+We can double check the CRDs beeing created with `kubectl get crds` and filter them using `grep` to our group name `crossplane.jonashackt.io`:
+
+```shell
+$ kubectl get crds | grep crossplane.jonashackt.io
+objectstorages.crossplane.jonashackt.io                         2022-06-27T09:54:18Z
+xobjectstorages.crossplane.jonashackt.io                        2022-06-27T09:54:18Z
+```
+
+> 💡 Only, if you're really stuck or don't know what to do, here's a working solution:
+
+<details>
+  <summary>🚀 Expand to see a working solution</summary>
+
+[`apis/s3/definition.yaml`](apis/s3/definition.yaml):
 
 ```yaml
 apiVersion: apiextensions.crossplane.io/v1
@@ -95,44 +176,96 @@ spec:
                   - bucketName
                   - region
 ```
+</details>
 
-Install the XRD into our cluster with:
 
-```shell
-kubectl apply -f apis/s3/definition.yaml
-```
+### 4.2.3 XRD Versioning
 
-Now the XRD should be installed:
+You may already asked yourself about the version used in the OpenAPI schema.[ The docs nail it](https://docs.upbound.io/xp-arch-framework/building-apis/building-apis-xrds/#versioning):
 
-```shell
-kubectl get compositeresourcedefinition
-NAME                                       ESTABLISHED   OFFERED   AGE
-xobjectstorages.crossplane.jonashackt.io   True          True      4d2h
-```
+> Over the lifetime of your custom API, there is a chance the shape of the API could change and you could introduce breaking changes.
 
-We can double check the CRDs beeing created with `kubectl get crds` and filter them using `grep` to our group name `crossplane.jonashackt.io`:
+> 📝 Notice the versions field is an array, so you can declare multiple versions of your API definition in the XRD. __Crossplane doesn’t allow serving multiple versions.__ Meaning, once v1alpha2 goes live, all the composites are force-migrated to that version
 
-```shell
-$ kubectl get crds | grep crossplane.jonashackt.io
-objectstorages.crossplane.jonashackt.io                         2022-06-27T09:54:18Z
-xobjectstorages.crossplane.jonashackt.io                        2022-06-27T09:54:18Z
-```
+A version change in the XRD (such as going from v1alpha1 -> v1alpha2) requires a new composition that implements the new version. To do this, [you need to define a new composition object](https://docs.upbound.io/xp-arch-framework/building-apis/building-apis-compositions/#composition-versioning), and point the compositionTypeRef to the new API version. We'll see how to create Compositions in the next section.
 
 
 
 
-
-Aufbau & Entwicklung von XRDs (Kubernetes CRDs)
 
 
 ## 4.3 Build your first Composition
 
+https://docs.crossplane.io/latest/concepts/compositions/
+
 The main work in Crossplane has to be done crafting the Compositions. This is because they interact with the infrastructure primitives the cloud provider APIs provide.
 
-Detailled docs to many of the possible manifest configurations can be found here https://docs.crossplane.io/latest/concepts/compositions/
+Now create a new file `composition.yaml` inside `apis/s3` and copy the contents of the following scaffold:
 
+```yaml
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: <plural-name>.<group>
+spec:
+  writeConnectionSecretsToNamespace: crossplane-system
+  compositeTypeRef:
+    apiVersion: <group.example.com>/v1alpha1
+    kind: X<KindName>
+  resources:
+    - name: <name>
+      base:
+        apiVersion: <resource-version>
+        kind: <resource-kind>
+        spec:
+          forProvider:
+            ...
+      patches:
+        ...
+```
 
-Now create a new file `composition.yaml` inside `apis/s3`:
+> 📝 Use the Provider documentation from the Upbound Marketplace and search for the Managed Resource you want to use. As we're using the `provider-aws-s3` [head over to it's Provider docs](https://marketplace.upbound.io/providers/upbound/provider-aws-s3) and search for the `Bucket` resource.
+
+In the `patches` section use the following configuration to fill the fields we already defined in the XRD into the `Bucket` resource fields.
+
+```yaml
+      patches:
+        - fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "metadata.name"
+        - fromFieldPath: "spec.parameters.region"
+          toFieldPath: "spec.forProvider.region"
+```
+
+Apply the Composition via:
+
+```shell
+kubectl apply -f apis/s3/composition.yaml
+```
+
+Have a look at your installed Composition via:
+
+```shell
+kubectl get composition
+NAME                        XR-KIND          XR-APIVERSION                       AGE
+objectstorage-composition   XObjectStorage   crossplane.jonashackt.io/v1alpha1   1m2s
+```
+
+Also have a look at the available revisions of your Compositions via `kubectl get compositionrevision`:
+
+```shell
+kubectl get compositionrevision
+NAME                                REVISION   XR-KIND          XR-APIVERSION                       AGE
+objectstorage-composition-a5bf2cb   1          XObjectStorage   crossplane.jonashackt.io/v1alpha1   1m4s
+```
+
+There's only one revision for now. We'll come back here later!
+
+> 💡 Only, if you're really stuck or don't know what to do, here's a working solution:
+
+<details>
+  <summary>🚀 Expand to see a working solution</summary>
+
+[`apis/s3/definition.yaml`](apis/s3/definition.yaml):
 
 ```yaml
 apiVersion: apiextensions.crossplane.io/v1
@@ -179,35 +312,8 @@ spec:
           toFieldPath: "spec.forProvider.region"
 ```
 
-As you can see we now use the Managed Resource `Bucket` inside `spec.resources`. We also use so called `patches` to insert parameters into the Bucket. We'll have a deeper look into these Patches later. For now both should be already known from the Composite Resource Definition.
-
-Apply the Composition via:
-
-```shell
-kubectl apply -f apis/s3/composition.yaml
-```
-
-Have a look at your installed Composition via:
-
-```shell
-kubectl get composition
-NAME                        XR-KIND          XR-APIVERSION                       AGE
-objectstorage-composition   XObjectStorage   crossplane.jonashackt.io/v1alpha1   1m2s
-```
-
-Also have a look at the available revisions of your Compositions via `kubectl get compositionrevision`:
-
-```shell
-kubectl get compositionrevision
-NAME                                REVISION   XR-KIND          XR-APIVERSION                       AGE
-objectstorage-composition-a5bf2cb   1          XObjectStorage   crossplane.jonashackt.io/v1alpha1   1m4s
-```
-
-There's only one revision for now. We'll come back here later!
-
-
-
-
+> 📝 As you can see we now use the Managed Resource `Bucket` inside `spec.resources`. We also use so called `patches` to insert parameters into the Bucket. We'll have a deeper look into these Patches later. For now both should be already known from the Composite Resource Definition.
+</details>
 
 
 
@@ -264,18 +370,18 @@ error: error validating "claim.yaml": error validating data: [ValidationError(S3
 
 The Crossplane validation is a great way to debug your yaml configuration - it hints you to the actual problems that are still present.
 
-From Crossplane CLI version 1.5 on there's also the way to pre-validate the Claims and Compositions. For more info see the next sections.
+From Crossplane CLI version 1.5 on there's also the way to pre-validate the Claims and Compositions via the `crossplane beta validate` command. For more info see the next sections.
 
 
 
 
 ## 4.5 Validate your Claims against XRDs
 
-Before using the command have a look at the command reference: https://docs.crossplane.io/latest/cli/command-reference/#beta-validate:
+[As the docs state](https://docs.crossplane.io/latest/cli/command-reference/#beta-validate):
 
 > The crossplane beta validate command validates compositions against provider or XRD schemas using the Kubernetes API server’s validation library.
 
-So let's grab a `definition.yaml` and validate a `claim.yaml` against it:
+So let's grab our Composite Resource Definition and validate our Claim against it:
 
 ```shell
 crossplane beta validate --cache-dir ~/.crossplane apis/s3/definition.yaml infrastructure/s3/objectstorage.yaml
@@ -327,18 +433,20 @@ crossplane beta render apis/s3/composition.yaml --include-full-xr | crossplane b
 
 ## 4.6 Compositions using multiple MRs: Patch & Transforms
 
-Aufbau & Entwicklung von Compositions: Patch & Transforms
-
-TODO: Patch & Transforms
-
 https://docs.crossplane.io/latest/concepts/compositions/#changing-resource-fields
 
+> 📝 The primary method to change resources is using a resource patch and transform. Patch and transforms allow matching specific input fields, modifying them and applying them to the managed resource.
 
-? https://github.com/awslabs/crossplane-on-eks/blob/main/doc/patching-101.md
+A full overview of the Patch and Transforms concept can be found in the Crossplane docs:
+
+https://docs.crossplane.io/latest/concepts/patch-and-transform/
+
+Additional information awaits in the Upbound docs:
+
+https://docs.upbound.io/xp-arch-framework/building-apis/building-apis-compositions/#composition-best-practices
 
 
-> Discussion: Using Compositions vs. MR-only 
-
+> 👥 Discussion: Using Compositions vs. MR-only 
 
 
 
@@ -493,7 +601,7 @@ objectstorage-composition-a5bf2cb   1          XObjectStorage   crossplane.jonas
 
 Composition Updates are applied automatically to all XRs/Claims by default. [As the docs state](https://docs.crossplane.io/knowledge-base/guides/composition-revisions/):
 
-> If you have 10 PlatformDB XRs all using the big-platform-db Composition, all 10 of those XRs will be instantly updated in accordance with any updates you make to the big-platform-db Composition.
+> 📝 If you have 10 PlatformDB XRs all using the big-platform-db Composition, all 10 of those XRs will be instantly updated in accordance with any updates you make to the big-platform-db Composition.
 
 So if we change a Composition, all the XRs will be updated. This can be a wanted behavior - or not at all.
 
@@ -530,7 +638,7 @@ spec:
 
 https://docs.crossplane.io/knowledge-base/guides/troubleshoot/
 
-> Per Kubernetes convention, Crossplane keeps errors close to the place they happen. This means that if your claim is not becoming ready due to an issue with your Composition or with a composed resource you’ll need to “follow the references” to find out why. Your claim will only tell you that the XR is not yet ready.
+> 📝  Per Kubernetes convention, Crossplane keeps errors close to the place they happen. This means that if your claim is not becoming ready due to an issue with your Composition or with a composed resource you’ll need to “follow the references” to find out why. Your claim will only tell you that the XR is not yet ready.
 
 
 The docs also tell us what they mean by "follow the references":

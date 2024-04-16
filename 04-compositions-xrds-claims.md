@@ -437,13 +437,126 @@ https://docs.crossplane.io/latest/concepts/compositions/#changing-resource-field
 
 > 📝 The primary method to change resources is using a resource patch and transform. Patch and transforms allow matching specific input fields, modifying them and applying them to the managed resource.
 
-A full overview of the Patch and Transforms concept can be found in the Crossplane docs:
-
 https://docs.crossplane.io/latest/concepts/patch-and-transform/
+
+> 📝 A Composition patch is the action of changing a field.
+
+> 📝 A Composition transform modifies the values before applying the patch.
+
+Examples of using patch and transforms include:
+
+* changing the name of the external resource
+* mapping generic terms like “east” or “west” to specific provider locations
+* appending custom labels or strings to resource fields
 
 Additional information awaits in the Upbound docs:
 
 https://docs.upbound.io/xp-arch-framework/building-apis/building-apis-compositions/#composition-best-practices
+
+
+### 4.6.1 Example Patchs & Patch types
+
+We already saw an example Patch in our first Composition:
+
+```yaml
+    - name: bucket
+      base:
+        # see https://marketplace.upbound.io/providers/upbound/provider-aws-s3/v1.3.1/resources/s3.aws.upbound.io/Bucket/v1beta1
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: Bucket
+        metadata: {}
+        spec:
+          deletionPolicy: Delete
+      
+      patches:
+        - fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "metadata.name"
+        - fromFieldPath: "spec.parameters.region"
+          toFieldPath: "spec.forProvider.region"
+```
+
+The `fromFieldPath` configures Crossplane to use the XR/Claim defined field to map it to the Managed Resource' `toFieldPath`. In this example both parameters are defined in the XRD and the Managed Resources fields are defined by the AWS S3 Provider.
+
+There's an implicit Patch `type` field. We can use it explicitely with a Range of Patches. The Patch type `FromCompositeFieldPath` takes a value in a XR/Claim and applies it to a field in the managed resource:
+
+```yaml
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "metadata.name"
+```
+
+The Patch type `ToCompositeFieldPath` is ideal to create labels in the Composition **after** the Managed Resource is created. So the data flows from MR to Composition:
+
+```yaml
+      patches:
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.hostedZoneId
+          toFieldPath: metadata.labels['ZoneID']
+```
+
+> 📝 For information on more Patch types have a look into the docs: https://docs.crossplane.io/latest/concepts/patch-and-transform/#types-of-patches
+
+
+### 4.6.2 Example PatchSet
+
+https://docs.crossplane.io/latest/concepts/patch-and-transform/#reuse-a-patch
+
+> 📝 A Composition can reuse a patch object on multiple resources with a PatchSet.
+
+Therefore there's a special Patch type: `PatchSet`. The PatchSet itself needs to be configured separately in the `patchSets` section:
+
+```yaml
+    # Managed Resource using PatchSet (multiple)
+    - name: bucket
+      base:
+        # see https://marketplace.upbound.io/providers/upbound/provider-aws/v0.34.0/resources/s3.aws.upbound.io/Bucket/v1beta1
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: Bucket
+        metadata: {}
+        spec:
+          deletionPolicy: Delete
+      
+      patches:
+        - type: PatchSet
+          patchSetName: bucketNameAndRegionPatchSet
+
+  # PatchSet definition (only once)
+  patchSets:
+  - name: bucketNameAndRegionPatchSet
+    patches:
+    - fromFieldPath: "spec.parameters.bucketName"
+      toFieldPath: "spec.forProvider.bucketRef.name"
+```
+
+
+### 4.6.3 Example Transforms
+
+There are multiple ways of transforming Patched fields. There are `convert`, `map`, `match`, `math` and `string` transform operations. The most used transform operation is possible the `string` one.
+
+> 📝 For more information about transform operations have a look into the docs: https://docs.crossplane.io/latest/concepts/patch-and-transform/#transform-a-patch
+
+For example we can use `bucketName` to generate matching names for other Managed Resources. To create a `crossplane-training-yourNameHere-acl` name for our `BucketACL`, we can use a `string` Patch transformer like this:
+
+```yaml
+    - name: bucketacl
+      base:
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: BucketACL
+        spec:
+          forProvider:
+            acl: "public-read"
+
+      patches:
+        - fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "metadata.name"
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-acl"
+        - type: PatchSet
+          patchSetName: bucketNameAndRegionPatchSet
+```
 
 
 > 👥 Discussion: Using Compositions vs. MR-only 
@@ -454,8 +567,52 @@ https://docs.upbound.io/xp-arch-framework/building-apis/building-apis-compositio
 
 ## 4.7 Extend your Composition using multiple MRs
 
-Now let's enhance your already existant Composition using all the needed Managed Resources to provision a publicly accessible S3 Bucket (as we already did in [1.6 Hands-On: Using multiple Managed Resources (public accessible S3 Bucket)](#16-hands-on-using-multiple-managed-resources-public-accessible-s3-bucket)). Therefore add all addidional Managed Resources to the file `apis/s3/composition.yaml`.
+Now let's enhance your already existant Composition using all the needed Managed Resources to provision a publicly accessible S3 Bucket.
 
+Therefore add all additional Managed Resources to the file `apis/s3/composition.yaml`.
+
+> 📝 We already did this in the last section [3.3 Using multiple Managed Resources (public accessible S3 Bucket)](#33-using-multiple-managed-resources-public-accessible-s3-bucket)). Just have a look over there and copy the Managed Resources for a start. 
+
+After adding the MRs try to use Patches, PatchSets and Patch transform operations to insert the values needed.
+
+If you're ready create the Composition via:
+
+```shell
+kubectl apply -f upbound/provider-aws-s3/composition.yaml
+```
+
+Now we should also see another Revision `2` of our Composition was installed (with additional resources). Therefore run `kubectl get compositionrevision`:
+
+```shell
+kubectl get compositionrevision
+NAME                                REVISION   XR-KIND          XR-APIVERSION                       AGE
+objectstorage-composition-4b6be94   2          XObjectStorage   crossplane.jonashackt.io/v1alpha1   2m42s
+objectstorage-composition-a5bf2cb   1          XObjectStorage   crossplane.jonashackt.io/v1alpha1   4d2h
+```
+
+Have a look into the Events section of your `k9s` again:
+
+![](docs/k9s-events-publicly-accessible-bucket.png)
+
+Also the AWS console should show the publicly accessible S3 Bucket after some time:
+
+![](docs/publicly-accessible-bucket.png)
+
+If you don't know what to do, have a look at the end of this section for the solution :)
+
+After having seen the Bucket beeing deployed we also want to know how to delete it again. Therefore run:
+
+```shell
+kubectl delete -f infrastructure/s3/simple-bucket.yaml
+```
+
+
+> 💡 Only, if you're really stuck or don't know what to do, here's a working solution:
+
+<details>
+  <summary>🚀 Expand to see a working solution</summary>
+
+[`apis/s3/composition.yaml`](apis/s3/composition.yaml):
 
 ```yaml
 apiVersion: apiextensions.crossplane.io/v1
@@ -496,10 +653,8 @@ spec:
           deletionPolicy: Delete
       
       patches:
-        - fromFieldPath: "spec.parameters.bucketName"
-          toFieldPath: "metadata.name"
-        - fromFieldPath: "spec.parameters.region"
-          toFieldPath: "spec.forProvider.region"
+        - type: PatchSet
+          patchSetName: bucketNameAndRegionPatchSet
 
     - name: bucketpublicaccessblock
       base:
@@ -514,12 +669,16 @@ spec:
             restrictPublicBuckets: false
 
       patches:
-        - fromFieldPath: "spec.parameters.bucketPABName"
-          toFieldPath: "metadata.name"
+        # use the bucketName parameter to create a derived bucketname-pab
+        # see https://docs.crossplane.io/v1.12/concepts/composition/#patch-types
         - fromFieldPath: "spec.parameters.bucketName"
-          toFieldPath: "spec.forProvider.bucketRef.name"
-        - fromFieldPath: "spec.parameters.region"
-          toFieldPath: "spec.forProvider.region"
+          toFieldPath: "metadata.name"
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-pab"
+        - type: PatchSet
+          patchSetName: bucketNameAndRegionPatchSet
 
     - name: bucketownershipcontrols
       base:
@@ -532,12 +691,14 @@ spec:
               - objectOwnership: ObjectWriter
 
       patches:
-        - fromFieldPath: "spec.parameters.bucketOSCName"
-          toFieldPath: "metadata.name"
         - fromFieldPath: "spec.parameters.bucketName"
-          toFieldPath: "spec.forProvider.bucketRef.name"
-        - fromFieldPath: "spec.parameters.region"
-          toFieldPath: "spec.forProvider.region"
+          toFieldPath: "metadata.name"
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-osc"
+        - type: PatchSet
+          patchSetName: bucketNameAndRegionPatchSet
 
     - name: bucketacl
       base:
@@ -549,12 +710,14 @@ spec:
             acl: "public-read"
 
       patches:
-        - fromFieldPath: "spec.parameters.bucketAclName"
-          toFieldPath: "metadata.name"
         - fromFieldPath: "spec.parameters.bucketName"
-          toFieldPath: "spec.forProvider.bucketRef.name"
-        - fromFieldPath: "spec.parameters.region"
-          toFieldPath: "spec.forProvider.region"
+          toFieldPath: "metadata.name"
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-acl"
+        - type: PatchSet
+          patchSetName: bucketNameAndRegionPatchSet
   
     - name: bucketwebsiteconfiguration
       base:
@@ -567,33 +730,29 @@ spec:
               - suffix: index.html
 
       patches:
-        - fromFieldPath: "spec.parameters.bucketWebConfName"
-          toFieldPath: "metadata.name"
         - fromFieldPath: "spec.parameters.bucketName"
-          toFieldPath: "spec.forProvider.bucketRef.name"
-        - fromFieldPath: "spec.parameters.region"
-          toFieldPath: "spec.forProvider.region"
+          toFieldPath: "metadata.name"
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-websiteconf"
+        - type: PatchSet
+          patchSetName: bucketNameAndRegionPatchSet
 
   # If you find yourself repeating patches a lot you can group them as a named
   # 'patch set' then use a PatchSet type patch to reference them.
-  #patchSets:
+  # see https://docs.crossplane.io/v1.12/concepts/composition/#compositions
+  patchSets:
+  - name: bucketNameAndRegionPatchSet
+    patches:
+    - fromFieldPath: "spec.parameters.bucketName"
+      toFieldPath: "spec.forProvider.bucketRef.name"
+    - fromFieldPath: "spec.parameters.region"
+      toFieldPath: "spec.forProvider.region"
 ```
 
-
-Let's create Composition via:
-
-```shell
-kubectl apply -f upbound/provider-aws-s3/composition.yaml
-```
-
-Now we should also see another Revision `2` of our Composition was installed (with additional resources). Therefore run `kubectl get compositionrevision`:
-
-```shell
-kubectl get compositionrevision
-NAME                                REVISION   XR-KIND          XR-APIVERSION                       AGE
-objectstorage-composition-4b6be94   2          XObjectStorage   crossplane.jonashackt.io/v1alpha1   2m42s
-objectstorage-composition-a5bf2cb   1          XObjectStorage   crossplane.jonashackt.io/v1alpha1   4d2h
-```
+> 📝 Now it's definitely time to use Patches and also a PatchSet. With the latter we can prevent ourselfes from repeating the patching of `bucketName` and `region` over and over again.
+</details>
 
 
 

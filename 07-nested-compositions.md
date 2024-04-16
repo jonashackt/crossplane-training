@@ -138,6 +138,10 @@ spec:
   ```
 </details>
 
+
+To be able to communicate the `subnetIds` and the `securityGroupClusterIds` we need to use the `status` field in our XRD. See the docs also https://docs.upbound.io/xp-arch-framework/building-apis/building-apis-compositions/#propagate-data-between-managed-resources
+
+
 * Composition: [`apis/networking/composition.yaml`](apis/networking/composition.yaml)
 
 <details>

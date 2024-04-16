@@ -4,9 +4,11 @@
 
 ## 1.1 Crossplane concepts: Managed Resources, Providers & Families, Configuration Packages
 
-Crossplane https://crossplane.io/ claims to be the "The cloud native control plane framework". It introduces a new way how to manage any cloud resource (beeing it Kubernetes-native or not). It's an alternative Infrastructure-as-Code tooling to Terraform, AWS CDK/Bicep or Pulumi and introduces a higher level of abstraction - based on Kubernetes CRDs. 
+Crossplane [crossplane.io](https://crossplane.io) claims to be the "The cloud native control plane framework". It introduces a new way how to manage any cloud resource (beeing it Kubernetes-native or not). It's an alternative Infrastructure-as-Code tooling to Terraform, AWS CDK/Bicep or Pulumi and introduces a higher level of abstraction - based on Kubernetes CRDs. 
 
-Literally the best intro post to Crossplane for me was https://blog.crossplane.io/crossplane-vs-cloud-infrastructure-addons/ - here the real key benefits especially compared to other tools are described. Without marketing blabla. If you love deep dives, I can also recommend Nate Reid's blog https://vrelevant.net/ who works as Staff Solutions Engineer at Upbound.
+> 📝 There's [a Google Presentation with more info on Crossplane](https://docs.google.com/presentation/d/1lWuUnMSUPV10ZYdb_vxfuWNwbFXesUt57CgG9PGVHWU/edit?usp=sharing) accompanying this repository 
+
+> 📝 The basic concepts need some time to sink in. All the Crossplane objects play a crucial role and after the training you will definitely know, what they are about. For now this is just an overview. The training dives into each one in detail.
 
 https://docs.crossplane.io/latest/concepts/
 
@@ -16,22 +18,18 @@ https://docs.crossplane.io/latest/concepts/
     * (optional) `CompositeResourceClaims` (XRC) (which is an abstraction of the XR for the application team to consume) - but is fantastic to hold the exact configuration parameters for the concrete resources you want to provision
     * a `Composition` that describes the actual infrastructure primitives aka `Managed Resources` used to build the Composite Resource. One XRD could have multiple Compositions - e.g. to one for every environment like development, stating and production
     * and configured by a `Configuration`
-* [Packages](https://crossplane.io/docs/v1.8/concepts/packages.html): OCI container images to handle distribution, version updates, dependency management & permissions for Providers & Configurations. Packages were formerly named `Stacks`.
-    * [Providers](https://crossplane.io/docs/v1.8/concepts/providers.html): are Packages that bundle a set of Managed Resources & __a Controller to provision infrastructure resources__ - all providers can be found on GitHub, e.g. [provider-aws](https://github.com/crossplane-contrib/provider-aws) or on [docs.crds.dev](https://doc.crds.dev/github.com/crossplane/provider-aws). A [list of all available Providers](https://github.com/orgs/crossplane-contrib/repositories?type=all) can also be found on GitHub.
-    * [Configuration](https://crossplane.io/docs/v1.8/getting-started/create-configuration.html): define your own Composite Resources (XRs) & package them via `kubectl crossplane build configuration` (now they are a Package) - and push them to an OCI registry via `kubectl crossplane push configuration`. With this Configurations can also be easily installed into other Crossplane clusters.
+* [Packages](https://docs.crossplane.io/latest/concepts/packages/#install-a-configuration): OCI container images to handle distribution, version updates, dependency management & permissions for Providers & Configurations. Packages were formerly named `Stacks`.
+    * [Providers](https://docs.crossplane.io/latest/concepts/providers/): are Packages that bundle a set of Managed Resources & __a Controller to provision infrastructure resources__ - all providers can be found on GitHub, e.g. [provider-aws-s3](https://github.com/crossplane-contrib/provider-upjet-aws) or the [Upbound Marketplace](https://marketplace.upbound.io/providers).
+    * [Configuration](https://docs.crossplane.io/latest/concepts/packages/#install-a-configuration): define your own Composite Resources (XRs) & package (now they are a Package) - and push them to an OCI registry via `kubectl crossplane push configuration`. With this Configurations can also be easily installed into other Crossplane clusters.
 
 
 ![composition-how-it-works](docs/composition-how-it-works.svg)
 
 
+## 1.2 Crossplane & Platform Engineering
 
+Put into other words and horizontal alignment Crossplane enables Platform Engineering through the introduction of XRDs, Compositions and Claims:
 
+![](docs/crossplane-for-platform-engineering.png)
 
-
-IaC with control planes: what about state?
-
-The "management cluster"
-
-Basic concepts, Managed Resources (MR), Providers (incl. crossplane-contrib vs. upbound, Provider Families, based on Terraform)
-
-Embedding Crossplane into GitOps processes
+We'll dive into all those concept in the next sections.

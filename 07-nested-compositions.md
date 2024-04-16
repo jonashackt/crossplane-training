@@ -4,9 +4,15 @@
 
 > 📝 When Compositions use other Compositions it is called `Nested Compositions` or `Layering Compositions` 
 
-There's not really much documentation about Nested Compositions. There's [this section in the upbound docs about "Layering composite resources"](https://docs.upbound.io/xp-arch-framework/building-apis/building-apis-compositions/#layering-composite-resources).
+[When to use Nested Compositions](https://docs.upbound.io/xp-arch-framework/building-apis/building-apis-compositions/#when-to-layer-compositions):
 
-In the XRD docs there are only some hints [about the role of the `XRD.status` field](https://docs.upbound.io/xp-arch-framework/building-apis/building-apis-xrds/#xrd-status).
+> As a best practice, always start by defining your compositions as a flat list of composed managed resources. The complexity involved with debugging a nested composition increases. Scenarios to consider using Nested Compositions:
+
+1. If you find yourself repetitively copying around definitions of managed resources in your compositions, that would be an appropriate time to consider refactoring those resources into their own compositions and nest them.
+2. If you have a set of common resource abstractions (such as a standard VPC or bucket) that you tend to use in tandem with other resources, you can compose them once and then nest then in other compositions as needed.
+3. In cases where when another team is the owner of a particular managed resource. For example, suppose one team owns “infra,” but wishes to use IAM Policies established by a “security” team. The security team can author IAMPolicy composites and the “infra” team can consume those.
+
+There's not really much documentation about Nested Compositions. There's [this section in the upbound docs about "Layering composite resources"](https://docs.upbound.io/xp-arch-framework/building-apis/building-apis-compositions/#layering-composite-resources). In the XRD docs there are only some hints [about the role of the `XRD.status` field](https://docs.upbound.io/xp-arch-framework/building-apis/building-apis-xrds/#xrd-status).
 
 ## 7.1 A good example: Build a EKS Cluster with Crossplane
 

@@ -2,12 +2,7 @@
 
 # 4. Compositions, XRDs & Claims
 
-About Compositions, XRDs, XRs & Claims (XRCs)
-
-Einführung in Compositions:
-Was sind Composite Resources (XR), Claims, Composite Resource Definitions (XRD)?
-
-
+Training about Compositions, XRDs, XRs & Claims (XRCs)
 
 ## 4.1 CompositeResourceDefinitions (or XRDs)
 
@@ -17,20 +12,12 @@ https://docs.crossplane.io/latest/concepts/composite-resource-definitions/
 
 Since defining your own CompositeResourceDefinitions and Compositions is the main work todo with Crossplane, it's always good to know the full Reference documentation which can be found here https://docs.crossplane.io/latest/concepts/compositions/
 
-One of the things to know is that Crossplane automatically injects some common 'machinery' into the manifests of the XRDs and Compositions: https://docs.crossplane.io/latest/concepts/composite-resources/ 
-
-
-
-
-
-## 4.2 Create your first Composite Resource Definition (XRD)
-
-All possible fields an XRD can have [are documented in the docs](https://docs.crossplane.io/latest/concepts/composite-resource-definitions/). 
+> 📝 All possible fields an XRD can have [are documented in the docs](https://docs.crossplane.io/latest/concepts/composite-resource-definitions/). 
 
 The field `spec.versions.schema` must contain a OpenAPI schema, which is similar to the ones used by any Kubernetes CRDs. They determine what fields the XR (and Claim) will have. The full CRD documentation and a guide on how to write OpenAPI schemas [could be found in the Kubernetes docs](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/).
 
 
-### 4.2.1 Scaffold a Composite Resource Definition (XRD)
+### 4.1.1 Scaffold a Composite Resource Definition (XRD)
 
 When [starting to create a XRD](https://docs.upbound.io/xp-arch-framework/building-apis/building-apis-xrds/#authoring-an-xrd) you may want to start with this scaffold:
 
@@ -84,8 +71,7 @@ Note that Crossplane will be automatically extended this section. Therefore the 
     status.connectionDetails
 
 
-### 4.2.2 Craft your XRD `objectstorage` for a AWS S3 Bucket
-
+### 4.1.2 Craft your XRD `objectstorage` for a AWS S3 Bucket
 
 Now create a new directory `apis/s3` with a new file `definition.yaml` and copy the contents of the scaffold yaml block above. Try to insert all the needed configuration yourself.
 
@@ -179,7 +165,7 @@ spec:
 </details>
 
 
-### 4.2.3 XRD Versioning
+### 4.1.3 XRD Versioning
 
 You may already asked yourself about the version used in the OpenAPI schema.[ The docs nail it](https://docs.upbound.io/xp-arch-framework/building-apis/building-apis-xrds/#versioning):
 
@@ -194,7 +180,7 @@ A version change in the XRD (such as going from v1alpha1 -> v1alpha2) requires a
 
 
 
-## 4.3 Build your first Composition
+## 4.2 Build your first Composition
 
 https://docs.crossplane.io/latest/concepts/compositions/
 
@@ -317,7 +303,7 @@ spec:
 
 
 
-## 4.4 Your first Composite Resource (XR) or Claim (XRC) (AWS S3)
+## 4.3 Your first Composite Resource (XR) or Claim (XRC) (AWS S3)
 
 Crossplane could look quite intimidating when having a first look. There are few guides around to show how to approach a setup when using Crossplane the first time. You can choose between writing an XR __OR__ XRC! You don't need both, since the XR will be generated from the XRC, if you choose to craft a XRC.
 
@@ -375,7 +361,7 @@ From Crossplane CLI version 1.5 on there's also the way to pre-validate the Clai
 
 
 
-## 4.5 Validate your Claims against XRDs
+## 4.4 Validate your Claim against XRDs
 
 [As the docs state](https://docs.crossplane.io/latest/cli/command-reference/#beta-validate):
 
@@ -392,7 +378,7 @@ Total 1 resources: 0 missing schemas, 1 success cases, 0 failure cases
 To prevent the command from polluting our projects with `.crossplane` directories, we should also provide a `--cache-dir ~/.crossplane` flag, which will deposit the directory in the user profile folder.
 
 
-### 4.5.1 Validate a full directory against XRDs or Provider schemes
+### 4.4.1 Validate a full directory against XRDs or Provider schemes
 
 We can also validate a full directory:
 
@@ -412,7 +398,7 @@ Total 10 resources: 4 missing schemas, 6 success cases, 0 failure cases
 ```
 
 
-### 4.5.2 Composition Validation
+### 4.4.2 Composition Validation
 
 To be able to validate Compositions & XRs, we need another command in the game: `crossplane beta render`:
 
@@ -431,7 +417,7 @@ crossplane beta render apis/s3/composition.yaml --include-full-xr | crossplane b
 
 
 
-## 4.6 Compositions using multiple MRs: Patch & Transforms
+## 4.5 Compositions using multiple MRs: Patch & Transforms
 
 https://docs.crossplane.io/latest/concepts/compositions/#changing-resource-fields
 
@@ -454,7 +440,7 @@ Additional information awaits in the Upbound docs:
 https://docs.upbound.io/xp-arch-framework/building-apis/building-apis-compositions/#composition-best-practices
 
 
-### 4.6.1 Example Patchs & Patch types
+### 4.5.1 Example Patches & Patch types
 
 We already saw an example Patch in our first Composition:
 
@@ -498,7 +484,7 @@ The Patch type `ToCompositeFieldPath` is ideal to create labels in the Compositi
 > 📝 For information on more Patch types have a look into the docs: https://docs.crossplane.io/latest/concepts/patch-and-transform/#types-of-patches
 
 
-### 4.6.2 Example PatchSet
+### 4.5.2 Example PatchSet
 
 https://docs.crossplane.io/latest/concepts/patch-and-transform/#reuse-a-patch
 
@@ -530,7 +516,7 @@ Therefore there's a special Patch type: `PatchSet`. The PatchSet itself needs to
 ```
 
 
-### 4.6.3 Example Transforms
+### 4.5.3 Example Transforms
 
 There are multiple ways of transforming Patched fields. There are `convert`, `map`, `match`, `math` and `string` transform operations. The most used transform operation is possible the `string` one.
 
@@ -565,7 +551,7 @@ For example we can use `bucketName` to generate matching names for other Managed
 
 
 
-## 4.7 Extend your Composition using multiple MRs
+## 4.6 Extend your Composition using multiple MRs
 
 Now let's enhance your already existant Composition using all the needed Managed Resources to provision a publicly accessible S3 Bucket.
 
@@ -758,7 +744,7 @@ spec:
 
 
 
-## 4.8 Opt out of automatic Composition Updates in XRs/Claims
+## 4.7 Opt out of automatic Composition Updates in XRs/Claims
 
 Composition Updates are applied automatically to all XRs/Claims by default. [As the docs state](https://docs.crossplane.io/knowledge-base/guides/composition-revisions/):
 
@@ -795,7 +781,7 @@ spec:
 
 
 
-## 4.9 Troubleshooting
+## 4.8 Troubleshooting
 
 https://docs.crossplane.io/knowledge-base/guides/troubleshoot/
 

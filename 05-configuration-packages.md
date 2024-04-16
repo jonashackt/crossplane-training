@@ -1,4 +1,4 @@
-< Back to [training overview](README.md)
+ [🔼 training overview](README.md)
 
 # 5. Managing Compositions: Configuration Packages
 
@@ -26,9 +26,9 @@ Steps to create your own Configuration Package:
 
 ## 5.1 Create a new (GitHub) Repository
 
-> As a recommendation, a Composition (or multiple nested Compositions) should be developed in their own Git Repository.
+> 📝 As a recommendation, a Composition (or multiple nested Compositions) should be developed in their own Git Repository.
 
-With this approach they can be tested in isolation and are distributed & used via a Crossplane Configuration Package (OCI image) from a Container Registry.
+> 📝 With this approach they can be tested in isolation and are distributed & used via a Crossplane Configuration Package (OCI image) from a Container Registry.
 
 Therefore head over to your GitHub account and create a new Repository now. Name it accordingly to your Composition. E.g. `objectstorage-composition`:
 

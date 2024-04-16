@@ -1,11 +1,8 @@
-< Back to [training overview](README.md)
+ [🔼 training overview](README.md)
 
 # 6. Testing Compositions
 
-Tests vs. Integration tests
-
-
-Currently (04/2024) [uptest](https://github.com/crossplane/uptest) is not a good choice:
+📝 Currently (04/2024) [uptest](https://github.com/crossplane/uptest) is not a good choice:
 
 > __WARNING:__ uptest is a work in progress and hardly ever used by any other than Upbound staff themselves. See [this issue comment](https://github.com/upbound/official-providers-ci/issues/153#issuecomment-1756317685): "I think we have to be honest and document somewhere that currently uptest is not really usable without surrounding make targets and the build module :)"
 
@@ -68,7 +65,7 @@ Our pre-created directory must be defined in `testDirs`.
 
 Using `startKIND: true` kuttl will start a kind cluster with the name `crossplane-test` defined in `kindContext`.
 
-We should also add the following lines to our `.gitignore` to prevent us from checking in kind logs or `kubeconfig` files:
+> 📝 We should add the following lines to our `.gitignore` to prevent us from checking in kind logs or `kubeconfig` files:
 
 ```shell
 kubeconfig
@@ -119,7 +116,7 @@ dependencies:
     version: 1.15.1
 ```
 
-Only be sure to add the following to your `.gitignore`:
+> 📝 Be sure to add the following to your `.gitignore`:
 
 ```shell
 # Exclude Helm charts lock and packages
@@ -133,7 +130,7 @@ Check the installation works via:
 kubectl kuttl test --skip-cluster-delete
 ```
 
-The `--skip-cluster-delete` flag will preserve our `crossplane-test` kind cluster for later runs.
+> 📝 The `--skip-cluster-delete` flag will preserve our `crossplane-test` kind cluster for later runs.
 
 Thus a `docker ps` should show the cluster also:
 
@@ -143,7 +140,7 @@ CONTAINER ID   IMAGE                  COMMAND                  CREATED         S
 782fa5bb39a9   kindest/node:v1.25.3   "/usr/local/bin/entr…"   2 minutes ago   Up About a minute   127.0.0.1:34407->6443/tcp   crossplane-test-control-plane
 ```
 
-You can even connect to the kind cluster directly setting the `KUBECONFIG` env variable like this:
+> 📝 You can even connect to the kind cluster directly setting the `KUBECONFIG` env variable like this:
 
 ```shell
 export KUBECONFIG="/home/jonashackt/dev/crossplane-kuttl/kubeconfig"
@@ -207,7 +204,7 @@ kindContext: crossplane-test
 
 ## 6.5 Configure AWS Provider in kuttl for testing Resource rendering only (without AWS access)
 
-It is not always needed to really create resources on AWS through out our tests. It might be enough to just check if the Managed Resources are rendered correctly.
+> 📝 It is not always needed to really create resources on AWS through out our tests. It might be enough to just check if the Managed Resources are rendered correctly.
 
 To get the Crossplane AWS Provider to render the Managed Resources without real AWS connectivity, we use the trick [described here](https://aaroneaton.com/walkthroughs/crossplane-package-testing-with-kuttl/) and create a `Secret` without actual AWS creds. You find it in the file [`crossplane/provider/non-access-secret.yaml`](crossplane/provider/non-access-secret.yaml):
 
@@ -332,7 +329,7 @@ PASS
 
 https://kuttl.dev/docs/kuttl-test-harness.html#create-a-test-case
 
-A kuttl test case is defined by the next directory level. Let's create one for our `objectstorage` composition:
+A kuttl test case is only defined by the next directory level. Let's create one for our `objectstorage` composition:
 
 ```shell
 mkdir tests/e2e/objectstorage
@@ -390,7 +387,7 @@ check the paths in your `command` statements! Although in the TestSuite at [`kut
 
 https://kuttl.dev/docs/testing/steps.html#format
 
-> "In a test case's directory, each file that begins with the same index is considered a part of the same test step. All objects inside of a test step are operated on by the test harness simultaneously, so use separate test steps to order operations.""
+> 📝 In a test case's directory, each file that begins with the same index is considered a part of the same test step. All objects inside of a test step are operated on by the test harness simultaneously, so use separate test steps to order operations.
 
 As kuttl executes every `00-*` prefixed test step found in the folder before proceeding to the `01-*` one, we can have the `00-given-install-xrd-composition` working as our preparation step for the other steps to come. Terminology is lent from BDD starting with `given`.
 
@@ -414,7 +411,7 @@ Here we apply our Claim residing in the `examples` dir.
 
 ## 6.9 Validate / Assert Resource rendering only (without AWS access)
 
-> It's crucial to use `01-assert` as the name here, to get the assertion beeing started after the Claim has been applied.
+> 📝 It's crucial to use `01-assert` as the name here, to get the assertion beeing started after the Claim has been applied.
 
 The BDD term `then` can't really be integrated into the final assert step. But luckily it's named `tests/e2e/objectstorage/01-assert.yaml`:
 
@@ -458,7 +455,7 @@ Now run our test suite with
 kubectl kuttl test --skip-cluster-delete
 ```
 
-The `--skip-cluster-delete` will preserve the kind cluster, if our tests failed and thus speep up our development cycle - otherwise kind and the Crossplane installation/configuration will take place in every test run. Since kuttl will create a local `kubeconfig` file, it will also reuse the kind cluster automatically in subsequent runs of:
+> 📝 The `--skip-cluster-delete` will preserve the kind cluster, if our tests failed and thus speep up our development cycle - otherwise kind and the Crossplane installation/configuration will take place in every test run. Since kuttl will create a local `kubeconfig` file, it will also reuse the kind cluster automatically in subsequent runs of:
 
 ```shell
 kubectl kuttl test --start-kind=false
@@ -470,6 +467,8 @@ A sole `kubectl kuttl test` will give `KIND is already running, unable to start`
 
 
 ## 6.10 Assertion errors & fixes
+
+### 6.10.1 key is missing from map
 
 If an error occurs like `key is missing from map`:
 
@@ -487,6 +486,7 @@ resource Subnet:/: .metadata.labels.zone: value mismatch, expected: eu-central-1
 
 Fix the `key is missing from map` first! Then the others might disappear.
 
+### 6.10.2 Better readable kuttl test output
 
 Also for better readability, we run the kuttl tests one after another by using the `parallel: 1` configuration in the [`kuttl-test.yaml](kuttl-test.yaml):
 
@@ -494,6 +494,8 @@ Also for better readability, we run the kuttl tests one after another by using t
 ...
 parallel: 1 # use parallel: 1 to execute one test after another (e.g. for better readability in CI logs)
 ```
+
+### 6.10.3 Ignore failed to retrieve aws credentials from aws config
 
 If the kuttl output displayes something like `failed to retrieve aws credentials from aws config: failed to refresh cached credentials, static credentials are empty`:
 
@@ -526,7 +528,7 @@ aws_secret_access_key = $(aws configure get aws_secret_access_key)
 " > aws-creds.conf
 ```
 
-> __ATTENTION__: Don't check `aws-creds.conf` into version control. The best is to add `aws-creds.conf` to your `.gitignore`.
+> 📝 __ATTENTION__: Don't check `aws-creds.conf` into version control. The best is to add `aws-creds.conf` to your `.gitignore`.
 
 Now inside our [`kuttl-test.yaml`](kuttl-test.yaml) we add another `command` statements to create the Secret and configure the AWS Provider:
 
@@ -555,7 +557,7 @@ startKIND: true
 kindContext: crossplane-test
 ```
 
-Before we create the Secret we delete it :) Why? Because we want to omit errors like this:
+> 📝 Before we create the Secret we delete it :) Why? Because we want to omit errors like this:
 
 ```shell
 error: failed to create secret secrets "aws-creds" already exists
@@ -564,7 +566,7 @@ error: failed to create secret secrets "aws-creds" already exists
 > See https://stackoverflow.com/a/45881324/4964553 - [The best approach using `dry-run=client`](https://stackoverflow.com/a/45881259/4964553) etc sadly doesn't work with kuttl producing a `error: unknown shorthand flag: 'f' in -f` error.
 
 
-Also I configured a higher timeout for resources to become available [via the `timeout` configuration of our TestSuite](https://kuttl.dev/docs/testing/reference.html#testassert). Otherwise we'll run into errors like this soon:
+> 📝 Also we configure a higher timeout for resources to become available [via the `timeout` configuration of our TestSuite](https://kuttl.dev/docs/testing/reference.html#testassert). Otherwise we'll run into errors like this soon:
 
 ```shell
 case.go:364: failed in step 1-when-applying-claim
@@ -655,7 +657,7 @@ PASS
 
 ## 6.12 Validate / Assert for testing actual infrastructure provisioning (with real AWS access)
 
-> It's crucial to use `01-assert` as the name here, to get the assertion beeing started after the Claim has been applied.
+> > 📝 It's crucial to use `01-assert` as the name here, to get the assertion beeing started after the Claim has been applied.
 
 The BDD term `then` can't really be integrated into the final assert step. But luckily it's named `tests/e2e/objectstorage/01-assert.yaml`:
 
@@ -691,8 +693,6 @@ spec:
 
 This test step will be considered completed once our Managed resources rendered are matching the state that we have defined. If the state is not reached by the time the assert's timeout has expired, then the test step and case will be considered failed. 
 
-> __The following is only necessary for real external AWS infrastructure:__
-
 Using [an explicit `TestAssert` definition here](https://kuttl.dev/docs/testing/reference.html#testassert) we're able to override the timeout again here to enable a faster test cycle. Otherwise the assertion would also wait for 300 seconds as defined in the test suite above.
 
 Also we use a collector to make sure, a cleanup step is also run [in case of an error](https://kuttl.dev/docs/testing/reference.html#collectors).
@@ -713,7 +713,7 @@ Now run our test suite with
 kubectl kuttl test --skip-cluster-delete
 ```
 
-The `--skip-cluster-delete` will preserve the kind cluster, if our tests failed and thus speep up our development cycle - otherwise kind and the Crossplane installation/configuration will take place in every test run. Since kuttl will create a local `kubeconfig` file, it will also reuse the kind cluster automatically in subsequent runs of:
+> 📝 The `--skip-cluster-delete` will preserve the kind cluster, if our tests failed and thus speep up our development cycle - otherwise kind and the Crossplane installation/configuration will take place in every test run. Since kuttl will create a local `kubeconfig` file, it will also reuse the kind cluster automatically in subsequent runs of:
 
 ```shell
 kubectl kuttl test --start-kind=false
@@ -741,7 +741,7 @@ commands:
   - command: kubectl delete -f ../../../examples/objectstorage/claim.yaml
 ```
 
-This should make sure, that our Bucket get's deleted in the end - when everything went fine. If not, we have configured our [collector inside the `TestAssert` config](https://kuttl.dev/docs/testing/reference.html#testassert).
+This will make sure, that our Bucket get's deleted in the end - when everything went fine. If not, we have configured our [collector inside the `TestAssert` config](https://kuttl.dev/docs/testing/reference.html#testassert).
 
 
 A full Crossplane featured kuttl test run should look somehow like this:
@@ -878,6 +878,6 @@ jobs:
 
 To prevent the `build-configuration-and-publish-to-ghcr` step from running before the test job successfully finished, [we use the `needs: resouces-rendering-test` keyword as described here](https://stackoverflow.com/a/65698892/4964553).
 
-Now our Pipeline should look like this:
+Our Pipeline should somehow look like this:
 
 ![](docs/only-publish-when-test-successful-pipeline.png)

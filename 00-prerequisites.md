@@ -1,4 +1,4 @@
-< Back to [training overview](README.md)
+ [🔼 training overview](README.md)
 
 # 0. Prerequisites
 

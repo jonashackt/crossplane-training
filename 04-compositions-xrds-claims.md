@@ -590,6 +590,8 @@ objectstorage-composition-4b6be94   2          XObjectStorage   crossplane.jonas
 objectstorage-composition-a5bf2cb   1          XObjectStorage   crossplane.jonashackt.io/v1alpha1   4d2h
 ```
 
+> 📝 Does this anything else? What might be missing?
+
 Have a look into the Events section of your `k9s` again:
 
 ![](docs/k9s-events-publicly-accessible-bucket.png)

@@ -1,4 +1,4 @@
-< Back to [training overview](README.md)
+ [🔼 training overview](README.md)
 
 # 2. Install & configure Crossplane & Providers
 
@@ -15,7 +15,7 @@ helm repo update
 helm upgrade --install crossplane --namespace crossplane-system --create-namespace crossplane-stable/crossplane
 ```
 
-Using the appended `--create-namespace`, we don't need to explicitely create the namespace before running `helm upgrade`.
+> 📝 Using the appended `--create-namespace`, we don't need to explicitely create the namespace before running `helm upgrade`.
 
 
 ### 2.1.2 Renovate-powered installation via local Helm Chart
@@ -41,7 +41,7 @@ helm dependency update crossplane-install
 helm upgrade --install crossplane --namespace crossplane-system crossplane-install --create-namespace
 ```
 
-Be sure to exclude `charts` and `Chart.lock` files via [.gitignore](.gitignore):
+> 📝 Be sure to exclude `charts` and `Chart.lock` files via [.gitignore](.gitignore):
 
 ```shell
 # Exclude Helm charts lock and packages
@@ -93,7 +93,7 @@ replicaset.apps/crossplane-7c88c45998                1         1         1      
 replicaset.apps/crossplane-rbac-manager-8466dfb7fc   1         1         1       69s
 ```
 
-> "The base Crossplane installation consists of two pods, the crossplane pod and the crossplane-rbac-manager pod. Before starting the core Crossplane container an init container runs. The init container installs the core Crossplane Custom Resource Definitions (CRDs), configures Crossplane webhooks and installs any supplied Providers or Configurations."" See https://docs.crossplane.io/latest/concepts/pods/
+> 📝 "[The base Crossplane installation consists of two pods](https://docs.crossplane.io/latest/concepts/pods/), the crossplane pod and the crossplane-rbac-manager pod. Before starting the core Crossplane container an init container runs. The init container installs the core Crossplane Custom Resource Definitions (CRDs), configures Crossplane webhooks and installs any supplied Providers or Configurations."
 
 Now we should be able to find some new Kubernetes API objects:
 
@@ -117,7 +117,7 @@ storeconfigs                                            secrets.crossplane.io/v1
 ```
 
 
-> Discussion installation Crossplane (Helm, local Chart, ArgoCD,...)
+> 👥 Discussion installation Crossplane (Helm, local Chart, ArgoCD,...)
 
 
 ## 2.2 Install & configure a Crossplane Provider (AWS)
@@ -144,7 +144,7 @@ The second provider, which is also called the Upbound "official" provider has be
 
 Which one should you choose? [This issue clarifies it](https://github.com/crossplane-contrib/provider-aws/issues/1954#issuecomment-1862593913):
 
-> "Upbound (the company behind crossplane) has moved to its own Terraform-based set of providers. This means that https://github.com/crossplane-contrib/provider-aws is now only maintained by community volunteers since there is a number of people out there who are still using it. __It is kind of legacy but it will receive further updates as long as the community is willing to contribute to it.__ 
+> 📝 "Upbound (the company behind crossplane) has moved to its own Terraform-based set of providers. This means that https://github.com/crossplane-contrib/provider-aws is now only maintained by community volunteers since there is a number of people out there who are still using it. __It is kind of legacy but it will receive further updates as long as the community is willing to contribute to it.__ 
 
 Until June 2023 the Upbound providers had a problem. As Managed Resources are CRDs, the Upbound provider introduced a problem to most control planes, since Kubernetes wasn't designed for that amount of CRDs. I gave [a talk about crossplane at our local DevOps Meetup](https://www.meetup.com/de-DE/devopsthde/events/293211158/) and already struggled with the Upbound AWS provider.
 
@@ -154,7 +154,7 @@ Therefore in June 2023 the Upjet generated official Upbound provider has been sp
 
 The [migration guide](https://docs.upbound.io/providers/migration/) also states that the monolithic provider is already deprecated:
 
-> "Warning: The monolithic AWS provider (upbound/provider-aws) has been deprecated in favor of the AWS provider family. You can read more about the provider families in our blog post and the official documentation for the provider families is here. We will continue support for the monolithic AWS provider until June 12, 2024. https://marketplace.upbound.io/providers/upbound/provider-aws/"
+> 📝 "Warning: The monolithic AWS provider (upbound/provider-aws) has been deprecated in favor of the AWS provider family. You can read more about the provider families in our blog post and the official documentation for the provider families is here. We will continue support for the monolithic AWS provider until June 12, 2024. https://marketplace.upbound.io/providers/upbound/provider-aws/"
 
 So head over to [the Upbound marketplace](https://marketplace.upbound.io/) and search for your provider familiy. As we want to use AWS S3 for example, here we went with https://marketplace.upbound.io/providers/upbound/provider-aws-s3.
 
@@ -185,9 +185,9 @@ Install it via `kubectl`:
 kubectl apply -f upbound/provider-aws-s3/config/provider-aws-s3.yaml
 ```
 
-The `package` version in combination with the `packagePullPolicy` configuration here is crucial, since we can configure an update strategy for the Provider here. ~~I'am not sure, if the Crossplane team will provide an installation method where we can use tools like Renovate to keep our Crossplane providers up to date~~ (now Renovate supports Crossplane, see paragraph `Provider & Configuration Package Upgrades with Renovate`). A full table of all possible fields can be found in the docs: https://crossplane.io/docs/v1.8/concepts/packages.html#specpackagepullpolicy We can also let crossplane itself manage new versions for us. But we also leave the GitOps way here!
+> 📝 The `package` version in combination with the `packagePullPolicy` configuration here is crucial, since we can configure an update strategy for the Provider here. ~~I'am not sure, if the Crossplane team will provide an installation method where we can use tools like Renovate to keep our Crossplane providers up to date~~ (now Renovate supports Crossplane, see paragraph [Provider & Configuration Package Upgrades with Renovate](https://github.com/jonashackt/crossplane-training/blob/main/08-additional-topics.md#82-provider--configuration-package-upgrades-with-renovate)). We can also let crossplane itself manage new versions for us. But then we sadly leave the GitOps way...
 
-Multiple Provider Package revisions can also be installed at the same time (especially when using `packagePullPolicy: Always`). If you installed multiple package versions, you'll see them as `providerrevision.pkg.x` when running `kubectl get crossplane`:
+> 📝 Multiple Provider Package revisions can also be installed at the same time (especially when using `packagePullPolicy: Always`). If you installed multiple package versions, you'll see them as `providerrevision.pkg.x` when running `kubectl get crossplane`:
 
 ```shell
 $ kubectl get crossplane
@@ -229,7 +229,7 @@ aws_secret_access_key = $(aws configure get aws_secret_access_key)
 " > aws-creds.conf
 ```
 
-> Don't ever check this file into source control - it holds your AWS credentials! Add it to your [.gitignore](.gitignore) file right now:
+> 📝 Don't ever check this file into source control - it holds your AWS credentials! Add it to your [.gitignore](.gitignore) file right now:
 
 ```shell
 # Exclude credential configuration files like aws-creds.conf
@@ -271,7 +271,7 @@ spec:
       key: creds
 ```
 
-> Crossplane resources use the `ProviderConfig` named `default` if no specific ProviderConfig is specified, so this ProviderConfig will be the default for all AWS resources.
+> 📝 Crossplane resources use the `ProviderConfig` named `default` if no specific ProviderConfig is specified, so this ProviderConfig will be the default for all AWS resources.
 
 The `secretRef.name` and `secretRef.key` has to match the fields of the already created Secret.
 
@@ -333,4 +333,4 @@ objects                                                 s3.aws.upbound.io/v1beta
 ```
 
 
-> Discussion differences to Azure etc.
+> 👥 Discussion differences to Azure etc.

@@ -182,7 +182,7 @@ Install it via `kubectl`:
 
 
 ```shell
-kubectl apply -f upbound/provider-aws-s3/config/provider-aws-s3.yaml
+kubectl apply -f upbound/provider-aws/provider/provider-aws-s3.yaml
 ```
 
 > 📝 The `package` version in combination with the `packagePullPolicy` configuration here is crucial, since we can configure an update strategy for the Provider here. ~~I'am not sure, if the Crossplane team will provide an installation method where we can use tools like Renovate to keep our Crossplane providers up to date~~ (now Renovate supports Crossplane, see paragraph [Provider & Configuration Package Upgrades with Renovate](https://github.com/jonashackt/crossplane-training/blob/main/08-additional-topics.md#82-provider--configuration-package-upgrades-with-renovate)). We can also let crossplane itself manage new versions for us. But then we sadly leave the GitOps way...

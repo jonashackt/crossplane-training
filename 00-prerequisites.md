@@ -8,6 +8,12 @@ For the 7. Nested Compositions part you should also be able to create IAM roles,
 
 Also there are several tools needed:
 
+## Running Docker installation without sudo
+
+Be sure to have a running Docker installation on your system: without `sudo`. Otherwise you'll get problems with kind.
+
+
+
 ## CLI tools: kind, helm, kubectl, AWS CLI, k9s
 
 First be sure to have kind, the package manager Helm and kubectl installed:

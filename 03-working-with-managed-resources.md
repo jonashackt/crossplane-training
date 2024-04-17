@@ -112,7 +112,7 @@ Somewhere in April 2023 [it became way more complex to setup a S3 Bucket in AWS 
 
 Therefore we need to use the Provider documentation from the Upbound Marketplace and search for the Managed Resource you want to use. As we're using the `provider-aws-s3` [head over to it's Provider docs](https://marketplace.upbound.io/providers/upbound/provider-aws-s3). This time we need to use multiple Managed Resources from this provider!
 
-> 📝 According to [this issue](https://github.com/hashicorp/terraform-provider-aws/issues/28353) and [these Terraform docs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_acl) we need to separate `Bucket` creation from `BucketPublicAccessBlock`, `BucketOwnershipControls`, `BucketACL` and `BucketWebsiteConfiguration`.
+> 📝 According to [this issue](https://github.com/hashicorp/terraform-provider-aws/issues/28353) and [these Terraform docs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_acl#with-public-read-acl) we need to separate `Bucket` creation from `BucketPublicAccessBlock`, `BucketOwnershipControls`, `BucketACL` and `BucketWebsiteConfiguration`.
 
 > 📝 You may also want to validate the MRs against the Provider schemes again:
 

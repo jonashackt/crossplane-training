@@ -79,6 +79,8 @@ For the `group` field use a unique domain name you or your company owns - like `
 
 Define 2 parameters that need to be defined by an XR/Claim: `bucketName` and `region`.
 
+> Have a look at the [XRD creation best practices](https://docs.upbound.io/xp-arch-framework/building-apis/building-apis-xrds/#authoring-best-practices) and [OpenAPI data types](https://swagger.io/docs/specification/data-models/data-types/)
+
 If you're finished, install the XRD into our cluster with:
 
 ```shell

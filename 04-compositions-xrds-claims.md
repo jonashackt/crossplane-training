@@ -190,7 +190,7 @@ https://docs.crossplane.io/latest/concepts/compositions/
 
 The main work in Crossplane has to be done crafting the Compositions. This is because they interact with the infrastructure primitives the cloud provider APIs provide.
 
-Now create a new file `composition.yaml` inside `apis/s3` and copy the contents of the following scaffold:
+Now create a new file `composition.yaml` inside `apis/s3` and copy the contents of the following [scaffold (from the upbound docs)](https://docs.upbound.io/xp-arch-framework/building-apis/building-apis-compositions/#scaffolding-a-composition):
 
 ```yaml
 apiVersion: apiextensions.crossplane.io/v1

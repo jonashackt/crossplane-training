@@ -104,7 +104,12 @@ brew tap kudobuilder/tap
 brew install kuttl-cli
 ```
 
-Alternatively: One of the best ways to install a kubectl plugin is to use the package manager [krew](https://github.com/kubernetes-sigs/krew). So first install krew via your preferred package manager (see https://krew.sigs.k8s.io/docs/user-guide/setup/install/).
+Alternatively: One of the best ways to install a kubectl plugin is to use the package manager [krew](https://github.com/kubernetes-sigs/krew). So first install krew via your preferred package manager (see https://krew.sigs.k8s.io/docs/user-guide/setup/install/):
+
+```shell
+# Manjaro 
+pamac install krew-bin
+```
 
 Now install kuttl via krew:
 

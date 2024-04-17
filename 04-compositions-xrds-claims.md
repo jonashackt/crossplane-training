@@ -21,16 +21,18 @@ The field `spec.versions.schema` must contain a OpenAPI schema, which is similar
 
 When [starting to create a XRD](https://docs.upbound.io/xp-arch-framework/building-apis/building-apis-xrds/#authoring-an-xrd) you may want to start with this scaffold:
 
+> The official Scaffold is somehow wrong right now. Use `metadata.name` `x-<plural-name>.<group>` instead of `<plural-name>.<group>` and also use lower `x` instead of `X`.
+
 ```yaml
 apiVersion: apiextensions.crossplane.io/v1
 kind: CompositeResourceDefinition
 metadata:
-  name: <plural-name>.<group>
+  name: x-<plural-name>.<group>
 spec:
   group: <group.example.com>
   names:
-    kind: X-<kind-name>
-    plural: X-<kind-name-plural>
+    kind: x-<kind-name>
+    plural: x-<kind-name-plural>
   claimNames:
     kind: <kind-name>
     plural: <kind-name-plural>

@@ -255,7 +255,7 @@ There's only one revision for now. We'll come back here later!
 <details>
   <summary>🚀 Expand to see a working solution</summary>
 
-[`apis/s3/definition.yaml`](apis/s3/definition.yaml):
+[`apis/s3/composition.yaml`](apis/s3/composition.yaml):
 
 ```yaml
 apiVersion: apiextensions.crossplane.io/v1

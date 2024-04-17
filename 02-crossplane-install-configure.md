@@ -217,6 +217,12 @@ Otherwise we may run into errors like this when applying the `ProviderConfig` ri
 
 
 
+To display all the Managed Resources the Provider installed, run:
+
+```shell
+k get crds | grep s3
+```
+
 
 ### 2.2.3 Create aws-creds.conf file
 

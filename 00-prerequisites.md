@@ -38,6 +38,8 @@ pamac install aws-cli
 
 The command `aws configure` should work on your system.
 
+> Test your AWS CLI installation via `aws sts get-caller-identity`. 
+
 Additionally we should have the [K8s workbench k9s](https://k9scli.io/) in place:
 
 ```shell

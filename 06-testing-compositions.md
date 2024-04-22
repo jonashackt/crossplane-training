@@ -2,6 +2,8 @@
 
 # 6. Testing Compositions
 
+How to write rendering tests & integration tests for our Compositions.
+
 📝 Currently (04/2024) [uptest](https://github.com/crossplane/uptest) is not a good choice:
 
 > __WARNING:__ uptest is a work in progress and hardly ever used by any other than Upbound staff themselves. See [this issue comment](https://github.com/upbound/official-providers-ci/issues/153#issuecomment-1756317685): "I think we have to be honest and document somewhere that currently uptest is not really usable without surrounding make targets and the build module :)"
@@ -166,7 +168,7 @@ kind delete clusters crossplane-test
 
 ## 6.4 Install AWS Provider in kuttl TestSuite
 
-The Upbound AWS Provider Family for S3 needed for our objectstorage Composition is located in [`crossplane/provider/upbound-provider-aws-s3.yaml`](crossplane/provider/upbound-provider-aws-s3.yaml):
+The Upbound AWS Provider Family for S3 needed for our objectstorage Composition is already located in [`upbound/provider-aws/provider/provider-aws-s3.yaml`](upbound/provider-aws/provider/provider-aws-s3.yaml):
 
 ```yaml
 apiVersion: pkg.crossplane.io/v1
@@ -191,9 +193,9 @@ commands:
   - command: helm upgrade --install crossplane --namespace crossplane-system crossplane-install --create-namespace --wait
 
   # Install the crossplane Upbound AWS S3 Provider Family
-  - command: kubectl apply -f crossplane/provider/upbound-provider-aws-s3.yaml
+  - command: kubectl apply -f upbound/provider-aws/provider/provider-aws-s3.yaml
   # Wait until AWS Provider is up and running
-  - command: kubectl wait --for=condition=healthy --timeout=180s provider/provider-aws-s3
+  - command: kubectl wait --for=condition=healthy --timeout=180s provider/upbound-provider-aws-s3
 testDirs:
   - tests/e2e/
 startKIND: true
@@ -206,7 +208,7 @@ kindContext: crossplane-test
 
 > 📝 It is not always needed to really create resources on AWS through out our tests. It might be enough to just check if the Managed Resources are rendered correctly.
 
-To get the Crossplane AWS Provider to render the Managed Resources without real AWS connectivity, we use the trick [described here](https://aaroneaton.com/walkthroughs/crossplane-package-testing-with-kuttl/) and create a `Secret` without actual AWS creds. You find it in the file [`crossplane/provider/non-access-secret.yaml`](crossplane/provider/non-access-secret.yaml):
+To get the Crossplane AWS Provider to render the Managed Resources without real AWS connectivity, we use the trick [described here](https://aaroneaton.com/walkthroughs/crossplane-package-testing-with-kuttl/) and create a `Secret` without actual AWS creds. You find it in the file [`upbound/provider-aws/config/non-access-secret.yaml`](upbound/provider-aws/config/non-access-secret.yaml):
 
 ```yaml
 apiVersion: v1
@@ -231,14 +233,14 @@ commands:
   - command: helm upgrade --install --force crossplane --namespace crossplane-system crossplane/install --create-namespace --wait
 
   # Install the crossplane Upbound AWS S3 Provider Family
-  - command: kubectl apply -f crossplane/provider/upbound-provider-aws-s3.yaml
+  - command: kubectl apply -f upbound/provider-aws/provider/provider-aws-s3.yaml
   # Wait until AWS Provider is up and running
   - command: kubectl wait --for=condition=healthy --timeout=180s provider/upbound-provider-aws-s3
 
   # Create AWS Provider secret without AWS access
-  - command: kubectl apply -f crossplane/provider/non-access-secret.yaml
+  - command: kubectl apply -f upbound/provider-aws/config/non-access-secret.yaml
   # Create ProviderConfig to consume the Secret containing AWS credentials
-  - command: kubectl apply -f crossplane/provider/provider-config-aws.yaml
+  - command: kubectl apply -f upbound/provider-aws/config/provider-config-aws.yaml
 testDirs:
   - tests/e2e/
 startKIND: true
@@ -246,7 +248,7 @@ kindContext: crossplane-test
 ```
 
 
-The final bit is to configure the AWS Provider via a `ProviderConfig` which is located in [`crossplane/provider/provider-config-aws.yaml`](crossplane/provider/provider-config-aws.yaml):
+The final bit is to configure the AWS Provider via a `ProviderConfig` which is already located in [`upbound/provider-aws/config/provider-config-aws.yaml`](upbound/provider-aws/config/provider-config-aws.yaml):
 
 ```yaml
 apiVersion: aws.upbound.io/v1beta1
@@ -292,13 +294,13 @@ $ kubectl kuttl test
     logger.go:42: 10:54:41 |  | STATUS: deployed
     logger.go:42: 10:54:41 |  | REVISION: 1
     logger.go:42: 10:54:41 |  | TEST SUITE: None
-    logger.go:42: 10:54:41 |  | running command: [kubectl apply -f crossplane/provider/upbound-provider-aws-s3.yaml]
+    logger.go:42: 10:54:41 |  | running command: [kubectl apply -f upbound/provider-aws/provider/provider-aws-s3.yaml]
     logger.go:42: 10:54:41 |  | provider.pkg.crossplane.io/upbound-provider-aws-s3 created
     logger.go:42: 10:54:41 |  | running command: [kubectl wait --for=condition=healthy --timeout=180s provider/upbound-provider-aws-s3]
     logger.go:42: 10:55:50 |  | provider.pkg.crossplane.io/upbound-provider-aws-s3 condition met
     logger.go:42: 10:55:50 |  | running command: [kubectl create secret generic aws-creds -n crossplane-system --from-file=creds=./aws-creds.conf]
     logger.go:42: 10:55:50 |  | secret/aws-creds created
-    logger.go:42: 10:55:50 |  | running command: [kubectl apply -f crossplane/provider/provider-config-aws.yaml]
+    logger.go:42: 10:55:50 |  | running command: [kubectl apply -f upbound/provider-aws/config/provider-config-aws.yaml]
     logger.go:42: 10:55:50 |  | providerconfig.aws.upbound.io/default created
     harness.go:360: running tests
     harness.go:73: going to run test suite with timeout of 30 seconds for each step
@@ -542,7 +544,7 @@ commands:
   - command: helm upgrade --install --force crossplane --namespace crossplane-system crossplane/install --create-namespace --wait
 
   # Install the crossplane Upbound AWS S3 Provider Family
-  - command: kubectl apply -f crossplane/provider/upbound-provider-aws-s3.yaml
+  - command: kubectl apply -f upbound/provider-aws/provider/provider-aws-s3.yaml
   # Wait until AWS Provider is up and running
   - command: kubectl wait --for=condition=healthy --timeout=180s provider/upbound-provider-aws-s3
 
@@ -550,7 +552,7 @@ commands:
   - command: kubectl delete secret aws-creds -n crossplane-system --ignore-not-found
   - command: kubectl create secret generic aws-creds -n crossplane-system --from-file=creds=./aws-creds.conf
   # Create ProviderConfig to consume the Secret containing AWS credentials
-  - command: kubectl apply -f crossplane/provider/provider-config-aws.yaml
+  - command: kubectl apply -f upbound/provider-aws/config/provider-config-aws.yaml
 testDirs:
   - tests/e2e/
 startKIND: true
@@ -576,7 +578,7 @@ case.go:364: failed in step 1-when-applying-claim
 This is only needed if we want our test to create external resources on AWS. If not, you can leave out the explicit timeout setting.
 
 
-The final bit is to configure the AWS Provider via a `ProviderConfig` which is located in [`crossplane/provider/provider-config-aws.yaml`](crossplane/provider/provider-config-aws.yaml):
+The final bit is to configure the AWS Provider via a `ProviderConfig` which is located in [`upbound/provider-aws/config/provider-config-aws.yaml`](upbound/provider-aws/config/provider-config-aws.yaml):
 
 ```yaml
 apiVersion: aws.upbound.io/v1beta1
@@ -622,13 +624,13 @@ $ kubectl kuttl test
     logger.go:42: 10:54:41 |  | STATUS: deployed
     logger.go:42: 10:54:41 |  | REVISION: 1
     logger.go:42: 10:54:41 |  | TEST SUITE: None
-    logger.go:42: 10:54:41 |  | running command: [kubectl apply -f crossplane/provider/upbound-provider-aws-s3.yaml]
+    logger.go:42: 10:54:41 |  | running command: [kubectl apply -f upbound/provider-aws/provider/provider-aws-s3.yaml]
     logger.go:42: 10:54:41 |  | provider.pkg.crossplane.io/upbound-provider-aws-s3 created
     logger.go:42: 10:54:41 |  | running command: [kubectl wait --for=condition=healthy --timeout=180s provider/upbound-provider-aws-s3]
     logger.go:42: 10:55:50 |  | provider.pkg.crossplane.io/upbound-provider-aws-s3 condition met
     logger.go:42: 10:55:50 |  | running command: [kubectl create secret generic aws-creds -n crossplane-system --from-file=creds=./aws-creds.conf]
     logger.go:42: 10:55:50 |  | secret/aws-creds created
-    logger.go:42: 10:55:50 |  | running command: [kubectl apply -f crossplane/provider/provider-config-aws.yaml]
+    logger.go:42: 10:55:50 |  | running command: [kubectl apply -f upbound/provider-aws/config/provider-config-aws.yaml]
     logger.go:42: 10:55:50 |  | providerconfig.aws.upbound.io/default created
     harness.go:360: running tests
     harness.go:73: going to run test suite with timeout of 30 seconds for each step
@@ -773,13 +775,13 @@ kubectl kuttl test
     logger.go:42: 16:26:47 |  | STATUS: deployed
     logger.go:42: 16:26:47 |  | REVISION: 1
     logger.go:42: 16:26:47 |  | TEST SUITE: None
-    logger.go:42: 16:26:47 |  | running command: [kubectl apply -f crossplane/provider/upbound-provider-aws-s3.yaml]
+    logger.go:42: 16:26:47 |  | running command: [kubectl apply -f upbound/provider-aws/provider/provider-aws-s3.yaml]
     logger.go:42: 16:26:47 |  | provider.pkg.crossplane.io/upbound-provider-aws-s3 created
     logger.go:42: 16:26:47 |  | running command: [kubectl wait --for=condition=healthy --timeout=180s provider/upbound-provider-aws-s3]
     logger.go:42: 16:27:53 |  | provider.pkg.crossplane.io/upbound-provider-aws-s3 condition met
     logger.go:42: 16:27:53 |  | running command: [kubectl create secret generic aws-creds -n crossplane-system --from-file=creds=./aws-creds.conf]
     logger.go:42: 16:27:53 |  | secret/aws-creds created
-    logger.go:42: 16:27:53 |  | running command: [kubectl apply -f crossplane/provider/provider-config-aws.yaml]
+    logger.go:42: 16:27:53 |  | running command: [kubectl apply -f upbound/provider-aws/config/provider-config-aws.yaml]
     logger.go:42: 16:27:54 |  | providerconfig.aws.upbound.io/default created
     harness.go:360: running tests
     harness.go:73: going to run test suite with timeout of 300 seconds for each step

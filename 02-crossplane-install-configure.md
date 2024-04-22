@@ -2,6 +2,10 @@
 
 # 2. Install & configure Crossplane & Providers
 
+The initial steps with Crossplane involve getting familiar with installation & Provider configuration.
+
+![](docs/training-overview-02.png)
+
 ## 2.1 Install Crossplane
 
 ### 2.1.1 Plain via Helm

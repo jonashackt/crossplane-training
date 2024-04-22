@@ -4,6 +4,8 @@
 
 Training about Compositions, XRDs, XRs & Claims (XRCs)
 
+![](docs/training-overview-04.png)
+
 ## 4.1 CompositeResourceDefinitions (or XRDs)
 
 https://docs.crossplane.io/latest/concepts/composite-resource-definitions/

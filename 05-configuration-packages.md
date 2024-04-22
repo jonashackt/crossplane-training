@@ -2,16 +2,13 @@
 
 # 5. Managing Compositions: Configuration Packages
 
-Development: How to structure your Composition repository
+How to develop your Compositions & package, publish and consume them in a Crossplane Configuration Packages (OCI.). You will create your own Composition Repository, structure it using a valid folder layout and get familiar with the `crossplane xpkg` command. After publishing your first Crossplane Configuration Package, you will consume & use it in your management cluster.
+
+![](docs/training-overview-05.png)
 
 https://docs.crossplane.io/latest/concepts/packages/
 
-Configuration Packages: Nutzung, Revisions
-
-Hands-On: Anlegen eines eigenen Packages, optional build per crossplane xpkg
-Versionierung von Compositions
-
-Steps to create your own Configuration Package:
+These are the steps to create your own Configuration Package:
 
 0. Install Crossplane CLI
 1. Create a new (GitHub) Repository
@@ -21,7 +18,9 @@ Steps to create your own Configuration Package:
 4. Optional: Build & Publish Configuration Packages automatically with GitHub Actions
 5. Install the Configuration Package into the management cluster
 6. Create a new Configuration Package Version and install it into the management cluster
+7. (Optional) Create a new Configuration Package version and install it into the management cluster
 
+We'll go through each step on after another:
 
 
 ## 5.1 Create a new (GitHub) Repository
@@ -261,7 +260,7 @@ spec:
 Run `kubectl get crossplane` and after applying the new Configuration here, there should appear all the Compositions and XRDs.
 
 
-## 5.7 Create a new Configuration Package Version and install it into the management cluster
+## (Optional) 5.7 Create a new Configuration Package Version and install it into the management cluster
 
 Change something in your Composition to change and then build a new Package using Crossplane CLI. Publish the Package to the GitHub Container Registry and install it to the management cluster.
 

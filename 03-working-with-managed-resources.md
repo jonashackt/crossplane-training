@@ -2,6 +2,10 @@
 
 # 3. Working with Managed Resources
 
+After having Crossplane installed, let's work with with Managed Resources!
+
+![](docs/training-overview-03.png)
+
 ## 3.1 Using your first Managed Resource (AWS S3)
 
 Let's create our first Crossplane Managed Resource, which should deploy a actual AWS S3 Bucket!

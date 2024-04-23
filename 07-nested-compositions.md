@@ -14,1112 +14,881 @@
 
 There's not really much documentation about Nested Compositions. There's [this section in the upbound docs about "Layering composite resources"](https://docs.upbound.io/xp-arch-framework/building-apis/building-apis-compositions/#layering-composite-resources). In the XRD docs there are only some hints [about the role of the `XRD.status` field](https://docs.upbound.io/xp-arch-framework/building-apis/building-apis-xrds/#xrd-status).
 
-## 7.1 A good example: Build a EKS Cluster with Crossplane
-
-Most information [is provided by this blog post](https://vrelevant.net/crossplane-beyond-the-basics-nested-xrs-and-composition-selectors/) and some examples like [this (watch out, this is based on the crossplane aws provider!)](https://github.com/cem-altuner/crossplane-prod-ready-eks) and [this](https://github.com/upbound/configuration-eks).
-
-So why not bootstrap a EKS cluster with Crossplane?!
-
-To achieve this goal we need to do the following:
-
-1. Add EKS, ECS & IAM Providers
-2. Craft a Networking Composition based on EC2 & IAM
-3. Craft a EKS Cluster Composition
-4. A Nested XR for Networking & EKS Cluster Compositions
-5. Accessing the Crossplane provisioned EKS cluster
 
 
+## 7.1 Example: Company website infrastructure
 
-## 7.2 Add EKS, ECS & IAM Providers
+We simply use parts of [the scenario from this AWS guide](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/getting-started-cloudfront-overview.html) where one needs to create an S3 bucket to host the company subdomain and another S3 bucket for the root domain.
 
-We first need to add 3 more Crossplane Providers from the upbound provider families for EKS, EC2 and IAM.
+We will take the following steps in order to build our first nested Composition:
 
-Therefore create 3 new Provider manifests.
+1. Create a XDomainHosting CompositeResourceDefinition (XRD)
+2. Craft a Composition 'domain' that will implement the (XRD)
+3. Create a Claim DomainHosting
+4. Create a XDomainHosting CompositeResourceDefinition (XRD)
+5. Craft a Composition 'subdomain' that will implement the (XRD)
+6. Create a Claim SubDomainHosting
+7. Create the CompositeResourceDefinition (XRD) for our Nested Composition
+8. Craft the Nested Composition 'company-website' that will use the other Compositions
 
-A [`upbound/provider-aws/provider/provider-aws-eks.yaml`](upbound/provider-aws/provider/provider-aws-eks.yaml):
 
-```yaml
-apiVersion: pkg.crossplane.io/v1
-kind: Provider
-metadata:
-  name: upbound-provider-aws-eks
-spec:
-  package: xpkg.upbound.io/upbound/provider-aws-eks:v1.2.1
-  packagePullPolicy: IfNotPresent # Only download the package if it isn’t in the cache.
-  revisionActivationPolicy: Automatic # Otherwise our Provider never gets activate & healthy
-  revisionHistoryLimit: 1
-```
 
-a [`upbound/provider-aws/provider/provider-aws-ec2.yaml`](upbound/provider-aws/provider/provider-aws-ec2.yaml):
+
+## 7.2 Create a XDomainHosting CompositeResourceDefinition (XRD)
+
+First we need to create the folder `apis/company-website/domain` where we create a new Composition for our company's root domain in a new file `definition.yaml`.
+
+The XRD should use a new `spec.group` name with the `domain` prefix (use your )
 
 ```yaml
-apiVersion: pkg.crossplane.io/v1
-kind: Provider
-metadata:
-  name: upbound-provider-aws-ec2
-spec:
-  package: xpkg.upbound.io/upbound/provider-aws-ec2:v1.2.1
-  packagePullPolicy: IfNotPresent # Only download the package if it isn’t in the cache.
-  revisionActivationPolicy: Automatic # Otherwise our Provider never gets activate & healthy
-  revisionHistoryLimit: 1
-```
-
-and a [`crossplane/provider/upbound-provider-aws-iam.yaml`](crossplane/provider/upbound-provider-aws-iam.yaml):
-
-```yaml
-apiVersion: pkg.crossplane.io/v1
-kind: Provider
-metadata:
-  name: upbound-provider-aws-iam
-spec:
-  package: xpkg.upbound.io/upbound/provider-aws-iam:v1.2.1
-  packagePullPolicy: IfNotPresent # Only download the package if it isn’t in the cache.
-  revisionActivationPolicy: Automatic # Otherwise our Provider never gets activate & healthy
-  revisionHistoryLimit: 1
-```
-
-
-
-## 7.3 Craft a Networking Composition based on EC2 & IAM
-
-Can be found in `apis/networking/` directory:
-
-* XRD: [`apis/networking/definition.yaml`](apis/networking/definition.yaml)
-
-
-<details>
-  <summary>expand full yaml</summary>
-
-  ```yaml
-  apiVersion: apiextensions.crossplane.io/v1
-kind: CompositeResourceDefinition
-metadata:
-  name: xnetworkings.net.aws.crossplane.jonashackt.io
-spec:
-  group: net.aws.crossplane.jonashackt.io
-  names:
-    kind: XNetworking
-    plural: xnetworkings
-  claimNames:
-    kind: Networking
-    plural: networkings
-  versions:
-    - name: v1alpha1
-      served: true
-      referenceable: true
-      schema:
-        openAPIV3Schema:
-          type: object
-          properties:
-            # defining input parameters
-            spec:
-              type: object
-              properties:
-                id:
-                  type: string
-                  description: ID of this Network that other objects will use to refer to it.
-                parameters:
-                  type: object
-                  description: Network configuration parameters.
-                  properties:
-                    region:
-                      type: string
-                  required:
-                    - region
-              required:
-                - id
-                - parameters
-            # defining return values
-            status:
-              type: object
-              properties:
-                subnetIds:
-                  type: array
-                  items:
-                    type: string
-                securityGroupClusterIds:
-                  type: array
-                  items:
-                    type: string
-  ```
-</details>
-
-
-To be able to communicate the `subnetIds` and the `securityGroupClusterIds` we need to use the `status` field in our XRD. See the docs also https://docs.upbound.io/xp-arch-framework/building-apis/building-apis-compositions/#propagate-data-between-managed-resources
-
-
-* Composition: [`apis/networking/composition.yaml`](apis/networking/composition.yaml)
-
-<details>
-  <summary>expand full yaml</summary>
-  
-  ```yaml
 apiVersion: apiextensions.crossplane.io/v1
-kind: Composition
-metadata:
-  name: networking
-  labels:
-    provider: aws
-spec:
-  compositeTypeRef:
-    apiVersion: net.aws.crossplane.jonashackt.io/v1alpha1
-    kind: XNetworking
-
-  writeConnectionSecretsToNamespace: crossplane-system
-
-  patchSets:
-  - name: networkconfig
-    patches:
-    - type: FromCompositeFieldPath
-      fromFieldPath: spec.id
-      toFieldPath: metadata.labels[net.aws.crossplane.jonashackt.io/network-id] # the network-id other Composition MRs (like EKSCluster) will use
-    - type: FromCompositeFieldPath
-      fromFieldPath: spec.parameters.region
-      toFieldPath: spec.forProvider.region
-
-  resources:
-    ### VPC and InternetGateway
-    - name: platform-vcp
-      base:
-        apiVersion: ec2.aws.upbound.io/v1beta1
-        kind: VPC
-        spec:
-          forProvider:
-            cidrBlock: 10.0.0.0/16
-            enableDnsSupport: true
-            enableDnsHostnames: true
-            tags:
-              Owner: Platform Team
-              Name: platform-vpc
-      patches:
-        - type: PatchSet
-          patchSetName: networkconfig
-        - fromFieldPath: spec.id
-          toFieldPath: metadata.name
-    
-    - name: gateway
-      base:
-        apiVersion: ec2.aws.upbound.io/v1beta1
-        kind: InternetGateway
-        spec:
-          forProvider:
-            vpcIdSelector:
-              matchControllerRef: true
-      patches:
-        - type: PatchSet
-          patchSetName: networkconfig
-
-
-    ### Subnet Configuration
-    - name: subnet-public-eu-central-1a
-      base:
-        apiVersion: ec2.aws.upbound.io/v1beta1
-        kind: Subnet
-        metadata:
-          labels:
-            access: public
-        spec:
-          forProvider:
-            mapPublicIpOnLaunch: true
-            cidrBlock: 10.0.0.0/24
-            vpcIdSelector:
-              matchControllerRef: true
-            tags:
-              kubernetes.io/role/elb: "1"
-      patches:
-        - type: PatchSet
-          patchSetName: networkconfig
-        # define eu-central-1a as zone & availabilityZone
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.parameters.region
-          toFieldPath: metadata.labels.zone
-          transforms:
-            - type: string
-              string:
-                fmt: "%sa"
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.parameters.region
-          toFieldPath: spec.forProvider.availabilityZone
-          transforms:
-            - type: string
-              string:
-                fmt: "%sa"
-        # provide the subnetId for later use as status.subnetIds entry
-        - type: ToCompositeFieldPath
-          fromFieldPath: metadata.annotations[crossplane.io/external-name]
-          toFieldPath: status.subnetIds[0]
-    
-    - name: subnet-public-eu-central-1b
-      base:
-        apiVersion: ec2.aws.upbound.io/v1beta1
-        kind: Subnet
-        metadata:
-          labels:
-            access: public
-        spec:
-          forProvider:
-            mapPublicIpOnLaunch: true
-            cidrBlock: 10.0.1.0/24
-            vpcIdSelector:
-              matchControllerRef: true
-            tags:
-              kubernetes.io/role/elb: "1"
-      patches:
-        - type: PatchSet
-          patchSetName: networkconfig
-          # define eu-central-1b as zone & availabilityZone
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.parameters.region
-          toFieldPath: metadata.labels.zone
-          transforms:
-            - type: string
-              string:
-                fmt: "%sb"
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.parameters.region
-          toFieldPath: spec.forProvider.availabilityZone
-          transforms:
-            - type: string
-              string:
-                fmt: "%sb"
-          # provide the subnetId for later use as status.subnetIds entry
-        - type: ToCompositeFieldPath
-          fromFieldPath: metadata.annotations[crossplane.io/external-name]
-          toFieldPath: status.subnetIds[1]
-
-    - name: subnet-public-eu-central-1c
-      base:
-        apiVersion: ec2.aws.upbound.io/v1beta1
-        kind: Subnet
-        metadata:
-          labels:
-            access: public
-        spec:
-          forProvider:
-            mapPublicIpOnLaunch: true
-            cidrBlock: 10.0.2.0/24
-            vpcIdSelector:
-              matchControllerRef: true
-            tags:
-              kubernetes.io/role/elb: "1"
-      patches:
-        - type: PatchSet
-          patchSetName: networkconfig
-          # define eu-central-1c as zone & availabilityZone
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.parameters.region
-          toFieldPath: metadata.labels.zone
-          transforms:
-            - type: string
-              string:
-                fmt: "%sc"
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.parameters.region
-          toFieldPath: spec.forProvider.availabilityZone
-          transforms:
-            - type: string
-              string:
-                fmt: "%sc"
-          # provide the subnetId for later use as status.subnetIds entry
-        - type: ToCompositeFieldPath
-          fromFieldPath: metadata.annotations[crossplane.io/external-name]
-          toFieldPath: status.subnetIds[2]  
-
-    ### SecurityGroup & SecurityGroupRules Cluster API server
-    - name: securitygroup-cluster
-      base:
-        apiVersion: ec2.aws.upbound.io/v1beta1
-        kind: SecurityGroup
-        metadata:
-          labels:
-            net.aws.crossplane.jonashackt.io: securitygroup-cluster
-        spec:
-          forProvider:
-            description: cluster API server access
-            name: securitygroup-cluster
-            vpcIdSelector:
-              matchControllerRef: true
-      patches:
-        - type: PatchSet
-          patchSetName: networkconfig
-        - fromFieldPath: spec.id
-          toFieldPath: metadata.name
-          # provide the securityGroupId for later use as status.securityGroupClusterIds entry
-        - type: ToCompositeFieldPath
-          fromFieldPath: metadata.annotations[crossplane.io/external-name]
-          toFieldPath: status.securityGroupClusterIds[0]
-
-    - name: securitygrouprule-cluster-inbound
-      base:
-        apiVersion: ec2.aws.upbound.io/v1beta1
-        kind: SecurityGroupRule
-        spec:
-          forProvider:
-            #description: Allow pods to communicate with the cluster API server & access API server from kubectl clients
-            type: ingress
-            cidrBlocks:
-              - 0.0.0.0/0
-            fromPort: 443
-            toPort: 443
-            protocol: tcp
-            securityGroupIdSelector:
-              matchLabels:
-                net.aws.crossplane.jonashackt.io: securitygroup-cluster
-      patches:
-        - type: PatchSet
-          patchSetName: networkconfig
-
-    - name: securitygrouprule-cluster-outbound
-      base:
-        apiVersion: ec2.aws.upbound.io/v1beta1
-        kind: SecurityGroupRule
-        spec:
-          forProvider:
-            description: Allow internet access from the cluster API server
-            type: egress
-            cidrBlocks: # Destination
-              - 0.0.0.0/0
-            fromPort: 0
-            toPort: 0
-            protocol: tcp
-            securityGroupIdSelector:
-              matchLabels:
-                net.aws.crossplane.jonashackt.io: securitygroup-cluster
-      patches:
-        - type: PatchSet
-          patchSetName: networkconfig
-
-    ### Route, RouteTable & RouteTableAssociations
-    - name: route
-      base:
-        apiVersion: ec2.aws.upbound.io/v1beta1
-        kind: Route
-        spec:
-          forProvider:
-            destinationCidrBlock: 0.0.0.0/0
-            gatewayIdSelector:
-              matchControllerRef: true
-            routeTableIdSelector:
-              matchControllerRef: true
-      patches:
-        - type: PatchSet
-          patchSetName: networkconfig
-
-    - name: routeTable
-      base:
-        apiVersion: ec2.aws.upbound.io/v1beta1
-        kind: RouteTable
-        spec:
-          forProvider:
-            vpcIdSelector:
-              matchControllerRef: true
-      patches:
-      - type: PatchSet
-        patchSetName: networkconfig
-
-    - name: mainRouteTableAssociation
-      base:
-        apiVersion: ec2.aws.upbound.io/v1beta1
-        kind: MainRouteTableAssociation
-        spec:
-          forProvider:
-            routeTableIdSelector:
-              matchControllerRef: true
-            vpcIdSelector:
-              matchControllerRef: true
-      patches:
-        - type: PatchSet
-          patchSetName: networkconfig
-
-    - name: RouteTableAssociation-public-a
-      base:
-        apiVersion: ec2.aws.upbound.io/v1beta1
-        kind: RouteTableAssociation
-        spec:
-          forProvider:
-            routeTableIdSelector:
-              matchControllerRef: true
-            subnetIdSelector:
-              matchControllerRef: true
-              matchLabels:
-                access: public
-      patches:
-        - type: PatchSet
-          patchSetName: networkconfig
-        # define eu-central-1a as subnetIdSelector.matchLabels.zone
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.parameters.region
-          toFieldPath: spec.forProvider.subnetIdSelector.matchLabels.zone
-          transforms:
-            - type: string
-              string:
-                fmt: "%sa"
-
-    - name: RouteTableAssociation-public-b
-      base:
-        apiVersion: ec2.aws.upbound.io/v1beta1
-        kind: RouteTableAssociation
-        spec:
-          forProvider:
-            routeTableIdSelector:
-              matchControllerRef: true
-            subnetIdSelector:
-              matchControllerRef: true
-              matchLabels:
-                access: public
-      patches:
-        - type: PatchSet
-          patchSetName: networkconfig
-        # define eu-central-1b as subnetIdSelector.matchLabels.zone
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.parameters.region
-          toFieldPath: spec.forProvider.subnetIdSelector.matchLabels.zone
-          transforms:
-            - type: string
-              string:
-                fmt: "%sb"
-
-    - name: RouteTableAssociation-public-c
-      base:
-        apiVersion: ec2.aws.upbound.io/v1beta1
-        kind: RouteTableAssociation
-        spec:
-          forProvider:
-            routeTableIdSelector:
-              matchControllerRef: true
-            subnetIdSelector:
-              matchControllerRef: true
-              matchLabels:
-                access: public
-      patches:
-        - type: PatchSet
-          patchSetName: networkconfig
-        # define eu-central-1c as subnetIdSelector.matchLabels.zone
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.parameters.region
-          toFieldPath: spec.forProvider.subnetIdSelector.matchLabels.zone
-          transforms:
-            - type: string
-              string:
-                fmt: "%sc"
-  ```
-</details>
-
-
-For the start, let's simply apply our first XRD, Composition and Claim manually like that:
-
-```shell
-# Networking XRD & Composition
-kubectl apply -f apis/networking/definition.yaml
-kubectl apply -f apis/networking/composition.yaml
-# Precheck if Network works
-kubectl apply -f examples/networking/claim.yaml
-```
-
-I found that the simplest way to follow what Crossplane is doing, is to look into the events ( via typing `:events`) in k9s:
-
-![](docs/follow-crossplane-events-in-k9s.png)
-
-And simply press `ENTER` to see the actual event message. This helped me a lot in the development process (no need to run `kubectl get crossplane` all the time and manually copy the CRD names to a `kubectl describe xyz-crd`).
-
-
-
-Managed Resources need to reference other Managed Resources. For example, a `SecurityGroupRule` needs to reference a `SecurityGroup`:
-
-```yaml
-...
-    ### SecurityGroups & Rules
-    - name: securitygroup-nodepool
-      base:
-        apiVersion: ec2.aws.upbound.io/v1beta1
-        kind: SecurityGroup
-        spec:
-          forProvider:
-            description: Cluster communication with worker nodes
-            name: securitygroup-nodepool
-            vpcIdSelector:
-              matchControllerRef: true
-
-      patches:
-        - type: PatchSet
-          patchSetName: networkconfig
-        - fromFieldPath: spec.id
-          toFieldPath: metadata.name
-          # provide the securityGroupId for later use as status.securityGroupIds entry
-        - type: ToCompositeFieldPath
-          fromFieldPath: metadata.annotations[crossplane.io/external-name]
-          toFieldPath: status.securityGroupIds[0]
-
-    - name: securitygroup-nodepool-rule
-      base:
-        apiVersion: ec2.aws.upbound.io/v1beta1
-        kind: SecurityGroupRule
-        spec:
-          forProvider:
-            type: egress
-            cidrBlocks:
-              - 0.0.0.0/0
-            fromPort: 0
-            protocol: tcp
-            securityGroupIdSelector:
-              matchLabels:
-                net.aws.crossplane.jonashackt.io: securitygroup
-            toPort: 0
-      patches:
-        - type: PatchSet
-          patchSetName: networkconfig
-          ...
-```
-
-In this example, we get the following error in our k8s events:
-
-```shell
-cannot resolve references: mg.Spec.ForProvider.SecurityGroupID: no resources matched selector
-```
-
-https://docs.crossplane.io/latest/concepts/managed-resources/#referencing-other-resources states
-
-> Some fields in a managed resource may depend on values from other managed resources. For example a VM may need the name of a virtual network to use.
-
-> Managed resources can reference other managed resources by external name, name reference or selector.
-
-The problem is, we don't specify the `net.aws.crossplane.jonashackt.io: securitygroup` label on our `SecurityGroup`! Doing that the problem is gone:
-
-```yaml
-        kind: SecurityGroup
-        metadata:
-          labels:
-            net.aws.crossplane.jonashackt.io: securitygroup
-```
-
-
-There should now be an event showing up containing `Successfully composed resources` in our `eks-vpc-j8s5k` XR.
-
-
-
-## 7.4 Craft a EKS Cluster Composition
-
-Can be found in `apis/eks/` directory:
-
-* XRD: [`apis/eks/definition.yaml`](apis/eks/definition.yaml)
-
-<details>
-  <summary>expand full yaml</summary>
-
-  ```yaml
-  apiVersion: apiextensions.crossplane.io/v1
 kind: CompositeResourceDefinition
 metadata:
-  # XRDs must be named 'x<plural>.<group>'
-  name: xeksclusters.eks.aws.crossplane.jonashackt.io
+  name: xdomainhostings.domain.<group>
 spec:
-  # This XRD defines an XR in the 'crossplane.jonashackt.io' API group.
-  # The XR or Claim must use this group together with the spec.versions[0].name as it's apiVersion, like this:
-  # 'crossplane.jonashackt.io/v1alpha1'
-  group: eks.aws.crossplane.jonashackt.io
-  
-  # XR names should always be prefixed with an 'X'
+  group: domain.<group.example.com>
   names:
-    kind: XEKSCluster
-    plural: xeksclusters
-  # This type of XR offers a claim, which should have the same name without the 'X' prefix
+    kind: XDomainHosting
+    plural: xdomainhostings
   claimNames:
-    kind: EKSCluster
-    plural: ekscluster
+    kind: DomainHosting
+    plural: domainhostings
+  ...
+```
+
+You can simply copy the openAPIV3Schema in the `versions` from the ["4.1.2 Craft your XRD objectstorage for a AWS S3 Bucket"](https://github.com/jonashackt/crossplane-training/blob/main/04-compositions-xrds-claims.md#412-craft-your-xrd-objectstorage-for-a-aws-s3-bucket).
+
+But we need to enhance the openAPIV3Schema to provide a output value `domainurl` inside the `schema.openAPIV3Schema.properties.status` field! Define the return value as your're already used to with other parameters.
+
+If you're finished, install the XRD into our cluster with:
+
+```shell
+kubectl apply -f apis/company-website/domain/definition.yaml
+```
+
+
+> 💡 Only, if you're really stuck or don't know what to do, here's a working solution:
+
+<details>
+  <summary>🚀 Expand to see a working solution</summary>
+
+[`apis/company-website/domain/definition.yaml`](apis/company-website/domain/definition.yaml):
+
+```yaml
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xdomainhostings.domain.crossplane.jonashackt.io
+spec:
+  group: domain.crossplane.jonashackt.io
   
-  # default Composition when none is specified (must match metadata.name of a provided Composition)
-  # e.g. in composition.yaml
-  defaultCompositionRef:
-    name: aws-eks
+  names:
+    kind: XDomainHosting
+    plural: xdomainhostings
+  claimNames:
+    kind: DomainHosting
+    plural: domainhostings
 
   versions:
   - name: v1alpha1
     served: true
     referenceable: true
-    # OpenAPI schema (like the one used by Kubernetes CRDs). Determines what fields
-    # the XR (and claim) will have. Will be automatically extended by crossplane.
-    # See https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/
-    # for full CRD documentation and guide on how to write OpenAPI schemas
     schema:
       openAPIV3Schema:
         type: object
         properties:
-          # defining input parameters
+          # We define 2 needed parameters here one has to provide as XR or Claim spec.parameters
           spec:
             type: object
             properties:
-              id:
-                type: string
-                description: ID of this Cluster that other objects will use to refer to it.
               parameters:
                 type: object
-                description: EKS configuration parameters.
                 properties:
-                  # Using subnetIds & securityGroupClusterIds from XNetworking to configure VPC
-                  subnetIds:
-                    type: array
-                    items:
-                      type: string
-                  securityGroupClusterIds:
-                    type: array
-                    items:
-                      type: string
+                  bucketName:
+                    type: string
                   region:
                     type: string
-                  nodes:
-                    type: object
-                    description: EKS node configuration parameters.
-                    properties:
-                      count:
-                        type: integer
-                        description: Desired node count, from 1 to 10.
-                    required:
-                    - count
                 required:
-                - subnetIds
-                - securityGroupClusterIds
-                - region
-                - nodes
-            required:
-            - id
-            - parameters
+                  - bucketName
+                  - region
           # defining return values
           status:
             type: object
             properties:
-              clusterStatus:
-                description: The status of the control plane
+              domainurl:
                 type: string
-              nodePoolStatus:
-                description: The status of the node pool
-                type: string
-  ```
+```
 </details>
 
-* Composition: [`apis/eks/composition.yaml`](apis/eks/composition.yaml)
 
-<details>
-  <summary>expand full yaml</summary>
-
-  ```yaml
-  apiVersion: apiextensions.crossplane.io/v1
-kind: Composition
-metadata:
-  name: aws-eks
-  labels:
-    provider: aws
-spec:
-  compositeTypeRef:
-    apiVersion: eks.aws.crossplane.jonashackt.io/v1alpha1
-    kind: XEKSCluster
-  
-  writeConnectionSecretsToNamespace: crossplane-system
-
-  patchSets:
-  - name: clusterconfig
-    patches:
-    - fromFieldPath: spec.parameters.region
-      toFieldPath: spec.forProvider.region
-
-  resources:
-    ### Cluster Configuration
-    - name: eksCluster
-      base:
-        apiVersion: eks.aws.upbound.io/v1beta1
-        kind: Cluster
-        metadata:
-          annotations:
-            meta.upbound.io/example-id: eks/v1beta1/cluster
-            uptest.upbound.io/timeout: "2400"
-        spec:
-          forProvider:
-            roleArnSelector:
-              matchControllerRef: true
-              matchLabels:
-                role: clusterRole
-            vpcConfig:
-              - endpointPrivateAccess: true
-                endpointPublicAccess: true
-      patches:
-        - type: PatchSet
-          patchSetName: clusterconfig
-        - fromFieldPath: spec.id
-          toFieldPath: metadata.name
-        # Using the XNetworking defined securityGroupClusterIds & subnetIds for the vpcConfig
-        - fromFieldPath: spec.parameters.securityGroupClusterIds
-          toFieldPath: spec.forProvider.vpcConfig[0].securityGroupIds
-        - fromFieldPath: spec.parameters.subnetIds
-          toFieldPath: spec.forProvider.vpcConfig[0].subnetIds
-
-        - type: ToCompositeFieldPath
-          fromFieldPath: status.atProvider.status
-          toFieldPath: status.clusterStatus    
-      readinessChecks:
-        - type: MatchString
-          fieldPath: status.atProvider.status
-          matchString: ACTIVE
-
-    - name: kubernetesClusterAuth
-      base:
-        apiVersion: eks.aws.upbound.io/v1beta1
-        kind: ClusterAuth
-        spec:
-          forProvider:
-            clusterNameSelector:
-              matchControllerRef: true
-      patches:
-        - type: PatchSet
-          patchSetName: clusterconfig
-        - fromFieldPath: spec.writeConnectionSecretToRef.namespace
-          toFieldPath: spec.writeConnectionSecretToRef.namespace
-        - fromFieldPath: spec.id
-          toFieldPath: spec.writeConnectionSecretToRef.name
-          transforms:
-            - type: string
-              string:
-                fmt: "%s-access"
-      connectionDetails:
-        - fromConnectionSecretKey: kubeconfig
-
-    ### Cluster Role and Policies
-    - name: clusterRole
-      base:
-        apiVersion: iam.aws.upbound.io/v1beta1
-        kind: Role
-        metadata:
-          labels:
-            role: clusterRole
-        spec:
-          forProvider:
-            assumeRolePolicy: |
-              {
-                "Version": "2012-10-17",
-                "Statement": [
-                    {
-                        "Effect": "Allow",
-                        "Principal": {
-                            "Service": [
-                                "eks.amazonaws.com"
-                            ]
-                        },
-                        "Action": [
-                            "sts:AssumeRole"
-                        ]
-                    }
-                ]
-              }
-      
-    
-    - name: clusterRolePolicyAttachment
-      base:
-        apiVersion: iam.aws.upbound.io/v1beta1
-        kind: RolePolicyAttachment
-        spec:
-          forProvider:
-            policyArn: arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
-            roleSelector:
-              matchControllerRef: true
-              matchLabels:
-                role: clusterRole
+## 7.3 Craft a Composition 'domain' that will implement the (XRD)
 
 
-    ### NodeGroup Configuration
-    - name: nodeGroupPublic
-      base:
-        apiVersion: eks.aws.upbound.io/v1beta1
-        kind: NodeGroup
-        spec:
-          forProvider:
-            clusterNameSelector:
-              matchControllerRef: true
-            nodeRoleArnSelector:
-              matchControllerRef: true
-              matchLabels:
-                role: nodegroup
-            subnetIdSelector:
-              matchLabels:
-                access: public
-            scalingConfig:
-              - minSize: 1
-                maxSize: 10
-                desiredSize: 1
-            instanceTypes: # TODO: we can support to have that parameterized also
-              - t3.medium
-      patches:
-        - type: PatchSet
-          patchSetName: clusterconfig
-        - fromFieldPath: spec.parameters.nodes.count
-          toFieldPath: spec.forProvider.scalingConfig[0].desiredSize
-        - fromFieldPath: spec.id
-          toFieldPath: spec.forProvider.subnetIdSelector.matchLabels[net.aws.crossplane.jonashackt.io/network-id]
-        - type: ToCompositeFieldPath
-          fromFieldPath: status.atProvider.status
-          toFieldPath: status.nodePoolStatus  
-      readinessChecks:
-      - type: MatchString
-        fieldPath: status.atProvider.status
-        matchString: ACTIVE
-
-    ### Node Role and Policies
-    - name: nodegroupRole
-      base:
-        apiVersion: iam.aws.upbound.io/v1beta1
-        kind: Role
-        metadata:
-          labels:
-            role: nodegroup
-        spec:
-          forProvider:
-            assumeRolePolicy: |
-              {
-                "Version": "2012-10-17",
-                "Statement": [
-                    {
-                        "Effect": "Allow",
-                        "Principal": {
-                            "Service": [
-                                "ec2.amazonaws.com"
-                            ]
-                        },
-                        "Action": [
-                            "sts:AssumeRole"
-                        ]
-                    }
-                ]
-              }
-      
-
-    - name: workerNodeRolePolicyAttachment
-      base:
-        apiVersion: iam.aws.upbound.io/v1beta1
-        kind: RolePolicyAttachment
-        spec:
-          forProvider:
-            policyArn: arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
-            roleSelector:
-              matchControllerRef: true
-              matchLabels:
-                role: nodegroup
-      
-
-    - name: cniRolePolicyAttachment
-      base:
-        apiVersion: iam.aws.upbound.io/v1beta1
-        kind: RolePolicyAttachment
-        spec:
-          forProvider:
-            policyArn: arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
-            roleSelector:
-              matchControllerRef: true
-              matchLabels:
-                role: nodegroup
-      
-    - name: containerRegistryRolePolicyAttachment
-      base:
-        apiVersion: iam.aws.upbound.io/v1beta1
-        kind: RolePolicyAttachment
-        spec:
-          forProvider:
-            policyArn: arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
-            roleSelector:
-              matchControllerRef: true
-              matchLabels:
-                role: nodegroup
-      
-  ```
-</details>
-
-For testing we simply use `kubectl apply -f`:
-
-
-```shell
-# EKS XRD & Composition
-kubectl apply -f apis/eks/definition.yaml
-kubectl apply -f apis/eks/composition.yaml
-
-# If you choose this example (non-nested) claim, be sure to change the subnetIds and securitygroupid according the the Networking claim executed before!
-
-# Precheck if EKSCluster works
-kubectl apply -f examples/eks/claim.yaml 
-```
-
-Errors in the events like this are normal, since the EKS Cluster needs it's time to be provisioned before NodeGroups etc. can be assigned:
-
-```shell
-cannot resolve references: mg.Spec.ForProvider.ClusterName: referenced field was empty (referenced resource may not yet be ready) 
-```
-
-This also shows up in the AWS console:
-
-![](docs/eks-cluster-initial-provisioning.png)
-
-
-Now if the `NodeGroup` comes up with the following
-
-```shell
-cannot resolve references: mg.Spec.ForProvider.SubnetIds: no resources matched selector 
-```
-
-there's a problem, where the NodeGroup can't find it's SubnetIds.
-
-```yaml
-    - name: nodeGroupPublic
-      base:
-        apiVersion: eks.aws.upbound.io/v1beta1
-        kind: NodeGroup
-        spec:
-          forProvider:
-            clusterNameSelector:
-              matchControllerRef: true
-            nodeRoleArnSelector:
-              matchControllerRef: true
-              matchLabels:
-                role: nodegroup
-            subnetIdSelector:
-              matchLabels:
-                access: public
-            scalingConfig:
-              - minSize: 1
-                maxSize: 10
-                desiredSize: 1
-            instanceTypes: # TODO: we can support to have that parameterized also
-              - t3.medium
-      patches:
-        - type: PatchSet
-          patchSetName: clusterconfig
-        - fromFieldPath: spec.parameters.nodes.count
-          toFieldPath: spec.forProvider.scalingConfig[0].desiredSize
-        - fromFieldPath: spec.id
-          toFieldPath: spec.forProvider.subnetIdSelector.matchLabels[aws.crossplane.jonashackt.io/network-id]
-          ...
-```
-
-That's because the label of all networking components changed to `net.aws.crossplane.jonashackt.io/network-id`. So let's fix that!
-
-Now finally the NodeGroups are correctly assigned to the EKS cluster:
-
-The `Successfully composed resources` message in the event `xekscluster/deploy-target-eks-cb87r` looks promising:
-
-![](docs/eks-cluster-with-nodegroups.png)
-
-
-
-## 7.5 A Nested XR for Networking & EKS Cluster Compositions
-
-Can be found in `apis/` directory:
-
-* XRD: [`apis/definition.yaml`](apis/definition.yaml)
-* Composition: [`apis/composition.yaml`](apis/composition.yaml)
-
-With this Composition we're able to use both pre-defined Compositions `XNetworking` and `XEKSCluster` and thus implement a nested Composite Resource:
+Now let's craft the Composition to implement our XRD:
 
 ```yaml
 apiVersion: apiextensions.crossplane.io/v1
 kind: Composition
 metadata:
-  name: kubernetes-cluster
+  name: domain
+  labels:
+    crossplane.io/xrd: xdomainhostings.domain.<group.example.com>
+    provider: aws
+spec:
+  writeConnectionSecretsToNamespace: crossplane-system
+  compositeTypeRef:
+    apiVersion: domain.<group.example.com>/v1alpha1
+    kind: XDomainHosting
+
+  writeConnectionSecretsToNamespace: crossplane-system
+  
+  resources:
+    - name: bucket
+      base:
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: Bucket
+        ...
+```
+
+The Composition should use the same resources as our already created Composition from ["4.6 Extend your Composition using multiple MRs"](https://github.com/jonashackt/crossplane-training/blob/main/04-compositions-xrds-claims.md#46-extend-your-composition-using-multiple-mrs).
+
+In addition to the resources you need to enhance the Bucket's `patches` section with another entry. We want to save the Bucket's region-specific domain name for later usage. Therefore create a new patch of type `ToCompositeFieldPath` use the `bucketRegionalDomainName` in the `fromFieldPath`. You can find the definition of the output parameter in the `Bucket` in the AWS S3 Provider documentation in the Upbound Marketplace (now we will finally need one of the `status` fields...). The `toFieldPath` is already defined in our XRD: `status.domainurl`.
+
+
+If you're finished, install the Composition into our cluster with:
+
+```shell
+kubectl apply -f apis/company-website/domain/composition.yaml
+```
+
+
+> 💡 Only, if you're really stuck or don't know what to do, here's a working solution:
+
+<details>
+  <summary>🚀 Expand to see a working solution</summary>
+
+[`apis/company-website/domain/composition.yaml`](apis/company-website/domain/composition.yaml):
+
+```yaml
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: domain
+  labels:
+    crossplane.io/xrd: xdomainhostings.domain.crossplane.jonashackt.io
+    provider: aws
 spec:
   compositeTypeRef:
-    apiVersion: k8s.crossplane.jonashackt.io/v1alpha1
-    kind: XKubernetesCluster
+    apiVersion: domain.crossplane.jonashackt.io/v1alpha1
+    kind: XDomainHosting
+  
+  writeConnectionSecretsToNamespace: crossplane-system
+  
+  resources:
+    - name: bucket
+      base:
+        # see https://marketplace.upbound.io/providers/upbound/provider-aws/v0.34.0/resources/s3.aws.upbound.io/Bucket/v1beta1
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: Bucket
+        metadata: {}
+        spec:
+          deletionPolicy: Delete
+      
+      patches:
+        - fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "metadata.name"
+        - fromFieldPath: "spec.parameters.region"
+          toFieldPath: "spec.forProvider.region"
+        # provide the bucketRegionalDomainName for later use as status.domainurl
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.bucketRegionalDomainName
+          toFieldPath: status.domainurl
+
+
+    - name: bucketpublicaccessblock
+      base:
+        # see https://marketplace.upbound.io/providers/upbound/provider-aws/v0.34.0/resources/s3.aws.upbound.io/BucketPublicAccessBlock/v1beta1
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: BucketPublicAccessBlock
+        spec:
+          forProvider:
+            blockPublicAcls: false
+            blockPublicPolicy: false
+            ignorePublicAcls: false
+            restrictPublicBuckets: false
+
+      patches:
+        # use the bucketName parameter to create a derived bucketname-pab
+        # see https://docs.crossplane.io/v1.12/concepts/composition/#patch-types
+        - fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "metadata.name"
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-pab"
+        - type: PatchSet
+          patchSetName: bucketNameAndRegionPatchSet
+
+    - name: bucketownershipcontrols
+      base:
+        # see https://marketplace.upbound.io/providers/upbound/provider-aws/v0.34.0/resources/s3.aws.upbound.io/BucketOwnershipControls/v1beta1#doc:spec-forProvider-rule-objectOwnership
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: BucketOwnershipControls
+        spec:
+          forProvider:
+            rule:
+              - objectOwnership: ObjectWriter
+
+      patches:
+        - fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "metadata.name"
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-osc"
+        - type: PatchSet
+          patchSetName: bucketNameAndRegionPatchSet
+
+    - name: bucketacl
+      base:
+        # see https://marketplace.upbound.io/providers/upbound/provider-aws/v0.34.0/resources/s3.aws.upbound.io/BucketACL/v1beta1
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: BucketACL
+        spec:
+          forProvider:
+            acl: "public-read"
+
+      patches:
+        - fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "metadata.name"
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-acl"
+        - type: PatchSet
+          patchSetName: bucketNameAndRegionPatchSet
+  
+    - name: bucketwebsiteconfiguration
+      base:
+        # see https://marketplace.upbound.io/providers/upbound/provider-aws/v0.34.0/resources/s3.aws.upbound.io/BucketWebsiteConfiguration/v1beta1
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: BucketWebsiteConfiguration
+        spec:
+          forProvider:
+            indexDocument:
+              - suffix: index.html
+
+      patches:
+        - fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "metadata.name"
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-websiteconf"
+        - type: PatchSet
+          patchSetName: bucketNameAndRegionPatchSet
+
+  # If you find yourself repeating patches a lot you can group them as a named
+  # 'patch set' then use a PatchSet type patch to reference them.
+  # see https://docs.crossplane.io/v1.12/concepts/composition/#compositions
+  patchSets:
+  - name: bucketNameAndRegionPatchSet
+    patches:
+    - fromFieldPath: "spec.parameters.bucketName"
+      toFieldPath: "spec.forProvider.bucketRef.name"
+    - fromFieldPath: "spec.parameters.region"
+      toFieldPath: "spec.forProvider.region"
+```
+</details>
+
+
+## 7.4 Create a Claim DomainHosting
+
+We want to testdrive our Composition already at this point. Therefore we need to create a Claim.
+
+> 📝 It's a best practive developing nested Composition to always test-drive each Composition in isolation also. This way you can be sure each and every part of your Compositions work as expected and not debug problems too late in the development cycle.
+
+Thereore create a new directory `infrastructure/company-website/domain` which will mimic the Composition's folder structure and a file `companydomain.yaml` to inherit the Claim.
+
+Define the Claim `DomainHosting` with two parameters as you're already used to: `bucketName` and `region`.
+
+
+If you're finished, install the Composition into our cluster with:
+
+```shell
+kubectl apply -f infrastructure/company-website/domain/companydomain.yaml
+```
+
+
+> 💡 Only, if you're really stuck or don't know what to do, here's a working solution:
+
+<details>
+  <summary>🚀 Expand to see a working solution</summary>
+
+[`infrastructure/company-website/domain/companydomain.yaml`](infrastructure/company-website/domain/companydomain.yaml):
+
+```yaml
+apiVersion: domain.crossplane.jonashackt.io/v1alpha1
+kind: DomainHosting
+metadata:
+  namespace: default
+  name: company-domain
+spec:
+  compositionRef:
+    name: domain
+  
+  parameters:
+    bucketName: crossplane-training-company-domain-jonas
+    region: eu-central-1
+```
+</details>
+
+
+
+
+
+## 7.5 Create a XDomainHosting CompositeResourceDefinition (XRD)
+
+We want to implement the AWS website scenario with 2 S3 Buckets for hosting. Since we already created a Bucket for the root domain, we now need an additional Bucket for the sub domain.
+
+Therefore create a folder `apis/company-website/subdomain` where we create a new Composition for our company's sub domain in a new file `definition.yaml`.
+
+The XRD should use a new `spec.group` name with the `subdomain` prefix (use your )
+
+```yaml
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xsubdomainhostings.domain.<group>
+spec:
+  group: subdomain.<group.example.com>
+  names:
+    kind: XSubDomainHosting
+    plural: xsubdomainhostings
+  claimNames:
+    kind: SubDomainHosting
+    plural: subdomainhostings
+```
+
+You can simply copy the openAPIV3Schema in the `versions` from the ["7.2 Create a XDomainHosting CompositeResourceDefinition (XRD)"]().
+
+As already done in the `xdomainhostings` XRD, we need to enhance the openAPIV3Schema to provide a output value `subdomainurl` inside the `schema.openAPIV3Schema.properties.status` field.
+
+If you're finished, install the XRD into our cluster with:
+
+```shell
+kubectl apply -f apis/company-website/subdomain/definition.yaml
+```
+
+
+> 💡 Only, if you're really stuck or don't know what to do, here's a working solution:
+
+<details>
+  <summary>🚀 Expand to see a working solution</summary>
+
+[`apis/company-website/subdomain/definition.yaml`](apis/company-website/subdomain/definition.yaml):
+
+```yaml
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xsubdomainhostings.subdomain.crossplane.jonashackt.io
+spec:
+  group: subdomain.crossplane.jonashackt.io
+  
+  names:
+    kind: XSubDomainHosting
+    plural: xsubdomainhostings
+  claimNames:
+    kind: SubDomainHosting
+    plural: subdomainhostings
+
+  versions:
+  - name: v1alpha1
+    served: true
+    referenceable: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          # We define 2 needed parameters here one has to provide as XR or Claim spec.parameters
+          spec:
+            type: object
+            properties:
+              parameters:
+                type: object
+                properties:
+                  bucketName:
+                    type: string
+                  region:
+                    type: string
+                required:
+                  - bucketName
+                  - region
+          # defining return values
+          status:
+            type: object
+            properties:
+              subdomainurl:
+                type: string
+```
+</details>
+
+
+## 7.6 Craft a Composition 'subdomain' that will implement the (XRD)
+
+
+Now let's craft the Composition to implement our XRD:
+
+```yaml
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: domain
+  labels:
+    crossplane.io/xrd: xsubdomainhostings.subdomain.<group.example.com>
+    provider: aws
+spec:
+  writeConnectionSecretsToNamespace: crossplane-system
+  compositeTypeRef:
+    apiVersion: subdomain.<group.example.com>/v1alpha1
+    kind: XSubDomainHosting
+
+  writeConnectionSecretsToNamespace: crossplane-system
+  
+  resources:
+    - name: bucket
+      base:
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: Bucket
+        ...
+```
+
+The Composition is quite similar to the already created Composition from ["7.3 Craft a Composition 'domain' that will implement the (XRD)"]().
+
+As already done in 7.3 we need to enhance the Bucket's `patches` section with another entry. As with the root Domain Composition we want to save the Bucket's region-specific domain name for later usage. The `toFieldPath` is already defined in our XRD: `status.subdomainurl`.
+
+
+If you're finished, install the Composition into our cluster with:
+
+```shell
+kubectl apply -f apis/company-website/subdomain/composition.yaml
+```
+
+
+> 💡 Only, if you're really stuck or don't know what to do, here's a working solution:
+
+<details>
+  <summary>🚀 Expand to see a working solution</summary>
+
+[`apis/company-website/subdomain/composition.yaml`](apis/company-website/subdomain/composition.yaml):
+
+```yaml
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: subdomain
+  labels:
+    crossplane.io/xrd: xsubdomainhostings.subdomain.crossplane.jonashackt.io
+    provider: aws
+spec:
+  compositeTypeRef:
+    apiVersion: subdomain.crossplane.jonashackt.io/v1alpha1
+    kind: XSubDomainHosting
+  
+  writeConnectionSecretsToNamespace: crossplane-system
+  
+  resources:
+    - name: bucket
+      base:
+        # see https://marketplace.upbound.io/providers/upbound/provider-aws/v0.34.0/resources/s3.aws.upbound.io/Bucket/v1beta1
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: Bucket
+        metadata: {}
+        spec:
+          deletionPolicy: Delete
+      
+      patches:
+        - fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "metadata.name"
+        - fromFieldPath: "spec.parameters.region"
+          toFieldPath: "spec.forProvider.region"
+        # provide the bucketRegionalDomainName for later use as status.subdomainurl
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.bucketRegionalDomainName
+          toFieldPath: status.subdomainurl
+
+
+    - name: bucketpublicaccessblock
+      base:
+        # see https://marketplace.upbound.io/providers/upbound/provider-aws/v0.34.0/resources/s3.aws.upbound.io/BucketPublicAccessBlock/v1beta1
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: BucketPublicAccessBlock
+        spec:
+          forProvider:
+            blockPublicAcls: false
+            blockPublicPolicy: false
+            ignorePublicAcls: false
+            restrictPublicBuckets: false
+
+      patches:
+        # use the bucketName parameter to create a derived bucketname-pab
+        # see https://docs.crossplane.io/v1.12/concepts/composition/#patch-types
+        - fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "metadata.name"
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-pab"
+        - type: PatchSet
+          patchSetName: bucketNameAndRegionPatchSet
+
+    - name: bucketownershipcontrols
+      base:
+        # see https://marketplace.upbound.io/providers/upbound/provider-aws/v0.34.0/resources/s3.aws.upbound.io/BucketOwnershipControls/v1beta1#doc:spec-forProvider-rule-objectOwnership
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: BucketOwnershipControls
+        spec:
+          forProvider:
+            rule:
+              - objectOwnership: ObjectWriter
+
+      patches:
+        - fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "metadata.name"
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-osc"
+        - type: PatchSet
+          patchSetName: bucketNameAndRegionPatchSet
+
+    - name: bucketacl
+      base:
+        # see https://marketplace.upbound.io/providers/upbound/provider-aws/v0.34.0/resources/s3.aws.upbound.io/BucketACL/v1beta1
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: BucketACL
+        spec:
+          forProvider:
+            acl: "public-read"
+
+      patches:
+        - fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "metadata.name"
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-acl"
+        - type: PatchSet
+          patchSetName: bucketNameAndRegionPatchSet
+  
+    - name: bucketwebsiteconfiguration
+      base:
+        # see https://marketplace.upbound.io/providers/upbound/provider-aws/v0.34.0/resources/s3.aws.upbound.io/BucketWebsiteConfiguration/v1beta1
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: BucketWebsiteConfiguration
+        spec:
+          forProvider:
+            indexDocument:
+              - suffix: index.html
+
+      patches:
+        - fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "metadata.name"
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-websiteconf"
+        - type: PatchSet
+          patchSetName: bucketNameAndRegionPatchSet
+
+  # If you find yourself repeating patches a lot you can group them as a named
+  # 'patch set' then use a PatchSet type patch to reference them.
+  # see https://docs.crossplane.io/v1.12/concepts/composition/#compositions
+  patchSets:
+  - name: bucketNameAndRegionPatchSet
+    patches:
+    - fromFieldPath: "spec.parameters.bucketName"
+      toFieldPath: "spec.forProvider.bucketRef.name"
+    - fromFieldPath: "spec.parameters.region"
+      toFieldPath: "spec.forProvider.region"
+```
+</details>
+
+
+## 7.7 Create a Claim SubDomainHosting
+
+Again we want to testdrive our second Composition already at this point. Therefore we need to create a Claim. Create a new directory `infrastructure/company-website/subdomain` which will mimic the Composition's folder structure and a file `companysubdomain.yaml` to inherit the Claim.
+
+Define the Claim `SubDomainHosting` with two parameters as you're already used to: `bucketName` and `region`.
+
+
+If you're finished, install the Composition into our cluster with:
+
+```shell
+kubectl apply -f infrastructure/company-website/subdomain/subcompanydomain.yaml
+```
+
+
+> 💡 Only, if you're really stuck or don't know what to do, here's a working solution:
+
+<details>
+  <summary>🚀 Expand to see a working solution</summary>
+
+[`infrastructure/company-website/subdomain/companysubdomain.yaml`](infrastructure/company-website/subdomain/companysubdomain.yaml):
+
+```yaml
+apiVersion: subdomain.crossplane.jonashackt.io/v1alpha1
+kind: SubDomainHosting
+metadata:
+  namespace: default
+  name: company-sub-domain
+spec:
+  compositionRef:
+    name: subdomain
+  
+  parameters:
+    bucketName: crossplane-training-company-sub-domain-jonas
+    region: eu-central-1
+```
+</details>
+
+
+
+## 7.8 Create the CompositeResourceDefinition (XRD) for our Nested Composition
+
+Now we're finally where we wanted to be: We can start to create our Nested Composition. A Nested Composition also needs a CompositeResourceDefinition (XRD) - just as a "normal" Composition.
+
+Therefore inside the already existant directory `apis/company-website` create a new file `definition.yaml` to inherit the Nested Composition's XRD:
+
+```yaml
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xcompanywebsites.website.<group>
+spec:
+  group: website.<group.example.com>
+  names:
+    kind: XCompanyWebsite
+    plural: xcompanywebsites
+  claimNames:
+    kind: CompanyWebsite
+    plural: companywebsites
+  ...
+```
+
+Also define two input parameters called `companywebsiteprefix` and `region`.
+
+The output parameters in the `status` field should get a field `companywebsiteurls`, which is NOT of type `string` BUT of type `array`. Remember that we defined our Compositions to have `domainurl` and `subdomainurl` fields defined? Both should be saved into the array later. The array definition can look like this:
+
+```yaml
+          # define output parameters
+          status:
+            type: object
+            properties:
+              companywebsiteurls:
+                type: array
+                items:
+                  type: string
+```
+
+If you're finished, install the XRD for our Nested Composition into our cluster with:
+
+```shell
+kubectl apply -f apis/company-website/definition.yaml
+```
+
+
+> 💡 Only, if you're really stuck or don't know what to do, here's a working solution:
+
+<details>
+  <summary>🚀 Expand to see a working solution</summary>
+
+[`apis/company-website/definition.yaml`](apis/company-website/definition.yaml):
+
+```yaml
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xcompanywebsites.website.crossplane.jonashackt.io
+spec:
+  group: website.crossplane.jonashackt.io
+  names:
+    kind: XCompanyWebsite
+    plural: xcompanywebsites
+  claimNames:
+    kind: CompanyWebsite
+    plural: companywebsites
+  versions:
+  - name: v1alpha1
+    served: true
+    referenceable: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          # define input parameters
+          spec:
+            type: object
+            properties:
+              parameters:
+                type: object
+                properties:
+                  companywebsiteprefix:
+                    type: string
+                  region:
+                    type: string
+                required:
+                  - companywebsiteprefix
+                  - region
+          # define output parameters
+          status:
+            type: object
+            properties:
+              companywebsiteurls:
+                type: array
+                items:
+                  type: string
+```
+</details>
+
+
+## 7.9 Craft the Nested Composition 'company-website' that will use the other Compositions
+
+We can finally craft the Nested Composition that will use the already created Compositions `XDomainHosting` and `XSubDomainHosting`. As a starting point use the following:
+
+```yaml
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: company-website
+spec:
+  compositeTypeRef:
+    apiVersion: website.<group.example.com>/v1alpha1
+    kind: XCompanyWebsite
+  ...
+```
+
+Now the question is: How to we use the other Compositions inside of another Composition? We simply use the CRDs we defined through the XRDs in the `resources` section. Here's an example:
+
+```yaml
+  resources:
+    ### Nested use of XDomainHosting XR
+    - name: compositeDomain
+      base:
+        apiVersion: domain.<group.example.com>/v1alpha1
+        kind: XDomainHosting
+      patches:
+        - fromFieldPath: spec.parameters.region
+          toFieldPath: spec.parameters.region
+        ...
+```
+
+While crafting Nested Compositions, we can also finally make real use of Patch transforms (as described in ["4.5.3 Example Transforms"](https://github.com/jonashackt/crossplane-training/blob/main/04-compositions-xrds-claims.md#453-example-transforms)). Since we defined a `spec.parameters.companywebsiteprefix` in the Nested Composition XRD, we can use it now as the source of `spec.parameters.bucketName` for each Composition we use and add a `transforms` section. Have a look into the mentioned section 4.5.3 and create a patch transform that will use the `companywebsiteprefix` and suffix it either with `-domain-jonas` or with `-sub-domain-jonas`. 
+
+
+Also we want to leverage our defined `status.domainurl` and `status.subdomainurl` and use a patch of type `ToCompositeFieldPath` to save them in the Nested Composition's array `status.companywebsiteurls`. You can access the array simply by using an index like this: `toFieldPath: status.companywebsiteurls[0]`.
+
+
+If you're finished, install the Nested Composition into our cluster with:
+
+```shell
+kubectl apply -f apis/company-website/composition.yaml
+```
+
+
+
+> 💡 Only, if you're really stuck or don't know what to do, here's a working solution:
+
+<details>
+  <summary>🚀 Expand to see a working solution</summary>
+
+[`apis/company-website/composition.yaml`](apis/company-website/composition.yaml):
+
+```yaml
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: company-website
+spec:
+  compositeTypeRef:
+    apiVersion: website.crossplane.jonashackt.io/v1alpha1
+    kind: XCompanyWebsite
   
   writeConnectionSecretsToNamespace: crossplane-system
 
   resources:
-    ### Nested use of XNetworking XR
-    - name: compositeNetworkEKS
+    ### Nested use of XDomainHosting XR
+    - name: compositeDomain
       base:
-        apiVersion: net.aws.crossplane.jonashackt.io/v1alpha1
-        kind: XNetworking
+        apiVersion: domain.crossplane.jonashackt.io/v1alpha1
+        kind: XDomainHosting
       patches:
-        - fromFieldPath: spec.id
-          toFieldPath: spec.id
-        - fromFieldPath: spec.parameters.region
-          toFieldPath: spec.parameters.region
-        # provide the subnetIds & securityGroupIds for later use
-        - type: ToCompositeFieldPath
-          fromFieldPath: status.subnetIds
-          toFieldPath: status.subnetIds
-          policy:
-            fromFieldPath: Required
-        - type: ToCompositeFieldPath
-          fromFieldPath: status.securityGroupIds
-          toFieldPath: status.securityGroupIds
-          policy:
-            fromFieldPath: Required
-    
-    ### Nested use of XEKSCluster XR
-    - name: compositeClusterEKS
-      base:
-        apiVersion: eks.aws.crossplane.jonashackt.io/v1alpha1
-        kind: XEKSCluster
-      connectionDetails:
-        - fromConnectionSecretKey: kubeconfig
-      patches:
-        - fromFieldPath: spec.id
-          toFieldPath: spec.id
-        - fromFieldPath: spec.id
-          toFieldPath: metadata.annotations[crossplane.io/external-name]
-        - fromFieldPath: metadata.uid
-          toFieldPath: spec.writeConnectionSecretToRef.name
+        - fromFieldPath: spec.parameters.companywebsiteprefix
+          toFieldPath: spec.parameters.bucketName
           transforms:
             - type: string
               string:
-                fmt: "%s-eks"
-        - fromFieldPath: spec.writeConnectionSecretToRef.namespace
-          toFieldPath: spec.writeConnectionSecretToRef.namespace
+                fmt: "%s-domain"
         - fromFieldPath: spec.parameters.region
-          toFieldPath: spec.parameters.region
-        - fromFieldPath: spec.parameters.nodes.count
-          toFieldPath: spec.parameters.nodes.count
-        - fromFieldPath: status.subnetIds
-          toFieldPath: spec.parameters.subnetIds
+          toFieldPath: spec.parameters.region        
+        # provide the domainurl as output
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.domainurl
+          toFieldPath: status.companywebsiteurls[0]
           policy:
             fromFieldPath: Required
-        - fromFieldPath: status.securityGroupIds
-          toFieldPath: spec.parameters.securityGroupIds
+    
+
+    ### Nested use of XSubDomainHosting XR
+    - name: compositeSubDomain
+      base:
+        apiVersion: subdomain.crossplane.jonashackt.io/v1alpha1
+        kind: XSubDomainHosting
+      patches:
+        - fromFieldPath: spec.parameters.companywebsiteprefix
+          toFieldPath: spec.parameters.bucketName
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-sub-domain"
+        - fromFieldPath: spec.parameters.region
+          toFieldPath: spec.parameters.region        
+        # provide the domainurl as output
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.subdomainurl
+          toFieldPath: status.companywebsiteurls[1]
           policy:
             fromFieldPath: Required
 ```
-
-For the start, let's simply apply our first XRD, Composition and Claim manually like that:
-
-```shell
-# Nested XRD & Composition
-kubectl apply -f apis/definition.yaml
-kubectl apply -f apis/composition.yaml
-
-# Check if full Cluster provisioning works
-kubectl apply -f examples/claim.yaml
-```
+</details>
 
 
 
-## 7.6 Accessing the Crossplane provisioned EKS cluster
+## 7.10 Create a Claim CompanyWebsite to provision the Nested Composition
 
-https://docs.crossplane.io/knowledge-base/guides/connection-details/
-
-In our eks cluster [claim](upbound/provider-aws/apis/eks/claim.yaml) we defined a 
+Finally create a new Claim to issue the provisioning of our Nested Composition. Simply create a file `companywebsite.yaml` in the `infrastructure/company-website` directory:
 
 ```yaml
-  writeConnectionSecretToRef:
-    name: eks-cluster-kubeconfig
+apiVersion: website.crossplane.jonashackt.io/v1alpha1
+kind: CompanyWebsite
+metadata:
+  namespace: default
+  name: company-website
+spec:
+  parameters:
+    companywebsiteprefix: crossplane-training-company
+    region: eu-central-1
 ```
 
-inside our nested claim. This will create a k8s `Secret` called `eks-cluster-kubeconfig`, where the kubeconfig will be stored.
-
-Let's extract the kubeconfig:
+Apply the Claim via
 
 ```shell
-kubectl get secret eks-cluster-kubeconfig -o jsonpath='{.data.kubeconfig}' | base64 --decode > ekskubeconfig
+kubectl apply -f infrastructure/company-website/companywebsite.yaml
 ```
 
-Now integrate the contents of the `ekskubeconfig` file into your `~/.kube/config` (better with VSCode!) and switch over to the new kube context e.g. using https://github.com/ahmetb/kubectx. If you're on the new context of our Crossplane bootstrapped EKS cluster, check if everything works:
+Now have a look at your `k9s` events: what's happening? Are your S3 Buckets showing up in the AWS console?
 
-```shell
-$ kubectl get nodes
-NAME                                          STATUS   ROLES    AGE   VERSION
-ip-10-0-0-173.eu-central-1.compute.internal   Ready    <none>   34m   v1.29.0-eks-5e0fdde
-ip-10-0-1-149.eu-central-1.compute.internal   Ready    <none>   34m   v1.29.0-eks-5e0fdde
-ip-10-0-2-90.eu-central-1.compute.internal    Ready    <none>   34m   v1.29.0-eks-5e0fdde
-```
+
+
+> 📝 If you successfully build the two Compositions and the Nested Composition, you can also enhance the setup with CloudFront and certificates (as described in the AWS scenario linked in section 7.1). But that's up to you :)

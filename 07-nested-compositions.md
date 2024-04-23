@@ -4,6 +4,8 @@
 
 > 📝 When Compositions use other Compositions it is called `Nested Compositions` or `Layering Compositions` 
 
+![](docs/training-overview-07.png)
+
 [When to use Nested Compositions](https://docs.upbound.io/xp-arch-framework/building-apis/building-apis-compositions/#when-to-layer-compositions):
 
 > As a best practice, always start by defining your compositions as a flat list of composed managed resources. The complexity involved with debugging a nested composition increases. Scenarios to consider using Nested Compositions:
@@ -889,6 +891,21 @@ kubectl apply -f infrastructure/company-website/companywebsite.yaml
 
 Now have a look at your `k9s` events: what's happening? Are your S3 Buckets showing up in the AWS console?
 
+Also use the `kubectl get composite` command to see all created Compositions:
+
+```shell
+k get composite
+NAME                                                                         SYNCED   READY   COMPOSITION   AGE
+xdomainhosting.domain.crossplane.jonashackt.io/company-website-hdrls-qnln4   True     False   domain        5m
+
+NAME                                                                               SYNCED   READY   COMPOSITION   AGE
+xsubdomainhosting.subdomain.crossplane.jonashackt.io/company-website-hdrls-4zphj   True     False   subdomain     5m
+
+NAME                                                                     SYNCED   READY   COMPOSITION       AGE
+xcompanywebsite.website.crossplane.jonashackt.io/company-website-hdrls   False            company-website   5m
+```
+
+Also run a `kubectl describe` on the Compositions - see if you can spot the output parameters in the array `status.companywebsiteurls`.
 
 
 > 📝 If you successfully build the two Compositions and the Nested Composition, you can also enhance the setup with CloudFront and certificates (as described in the AWS scenario linked in section 7.1). But that's up to you :)

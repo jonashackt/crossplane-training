@@ -8,7 +8,11 @@ How to develop your Compositions & package, publish and consume them in a Crossp
 
 https://docs.crossplane.io/latest/concepts/packages/
 
-These are the steps to create your own Configuration Package:
+There are also some (currently really only a few) [pre-defined Configurations available](https://marketplace.upbound.io/configurations) in the upbound marketplace:
+
+![](docs/upbound-marketplace-configurations.png)
+
+_We will now gain the knowledge how to create our own Configuration!_ These are the steps to create your own Configuration Package:
 
 0. Install Crossplane CLI
 1. Create a new (GitHub) Repository

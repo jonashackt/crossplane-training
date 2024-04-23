@@ -353,6 +353,14 @@ Again in the AWS console your Bucket should show up:
 
 > Your first Crossplane Composition (incl. it's MRs) should come alive.
 
+
+> 📝 Also have a look at the Composite Resource (the 'XR'). Crossplane automatically generates the XR based on the Claim! Therefore run:
+
+```shell
+kubectl get composite
+```
+
+
 When something goes wrong with the validation while applying your Claim, this could look like this:
 
 ```shell
@@ -647,8 +655,10 @@ spec:
           deletionPolicy: Delete
       
       patches:
-        - type: PatchSet
-          patchSetName: bucketNameAndRegionPatchSet
+        - fromFieldPath: "spec.parameters.bucketName"
+          toFieldPath: "metadata.name"
+        - fromFieldPath: "spec.parameters.region"
+          toFieldPath: "spec.forProvider.region"
 
     - name: bucketpublicaccessblock
       base:

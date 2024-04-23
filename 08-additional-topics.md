@@ -69,7 +69,9 @@ It makes sense, if most of the files are for Crossplane.
 TBD. See https://github.com/jonashackt/crossplane-argocd
 
 
+## 8.5 Composition Functions
 
+TBD. See https://docs.crossplane.io/latest/concepts/composition-functions/
 
 
 

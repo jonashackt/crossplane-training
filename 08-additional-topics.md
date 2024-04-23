@@ -69,7 +69,25 @@ It makes sense, if most of the files are for Crossplane.
 TBD. See https://github.com/jonashackt/crossplane-argocd
 
 
-## 8.5 Composition Functions
+## 8.5 Import existing Resources into Crossplane
+
+https://docs.crossplane.io/latest/guides/import-existing-resources/
+
+It's possible to import existing Resources into Crossplane as Managed Resources: 
+
+> 📝 Crossplane can discover and import existing Provider resources by matching the `crossplane.io/external-name` annotation in a managed resource.
+
+> For example, to import an existing GCP Network named my-existing-network, create a new managed resource and use the my-existing-network in the annotation.
+
+```yaml
+apiVersion: compute.gcp.crossplane.io/v1beta1
+kind: Network
+metadata:
+  annotations:
+    crossplane.io/external-name: my-existing-network
+```
+
+## 8.6 Composition Functions
 
 TBD. See https://docs.crossplane.io/latest/concepts/composition-functions/
 

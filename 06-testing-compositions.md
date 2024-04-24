@@ -208,7 +208,7 @@ kindContext: crossplane-test
 
 > 📝 It is not always needed to really create resources on AWS through out our tests. It might be enough to just check if the Managed Resources are rendered correctly.
 
-To get the Crossplane AWS Provider to render the Managed Resources without real AWS connectivity, we use the trick [described here](https://aaroneaton.com/walkthroughs/crossplane-package-testing-with-kuttl/) and create a `Secret` without actual AWS creds. You find it in the file [`upbound/provider-aws/config/non-access-secret.yaml`](upbound/provider-aws/config/non-access-secret.yaml):
+To get the Crossplane AWS Provider to render the Managed Resources without real AWS connectivity, we use the trick [described here](https://aaroneaton.com/walkthroughs/crossplane-package-testing-with-kuttl/) and create a `Secret` without actual AWS creds. You need to create the file [`upbound/provider-aws/config/non-access-secret.yaml`](upbound/provider-aws/config/non-access-secret.yaml):
 
 ```yaml
 apiVersion: v1

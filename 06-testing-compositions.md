@@ -189,8 +189,8 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestSuite
 commands:
   # Install crossplane via Helm Renovate enabled (see https://stackoverflow.com/a/71765472/4964553)
-  - command: helm dependency update crossplane-install
-  - command: helm upgrade --install crossplane --namespace crossplane-system crossplane-install --create-namespace --wait
+  - command: helm dependency update crossplane/install
+  - command: helm upgrade --install crossplane --namespace crossplane-system crossplane/install --create-namespace --wait
 
   # Install the crossplane Upbound AWS S3 Provider Family
   - command: kubectl apply -f upbound/provider-aws/provider/provider-aws-s3.yaml

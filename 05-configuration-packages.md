@@ -131,7 +131,7 @@ login and dockers configuration as fallback.
 So we need to login to GitHub Container Registry first in order to be able to push our OCI image:
 
 ```shell
-echo $CR_PAT | docker login ghcr.io -u YourAccountOrGHOrgaNameHere --password-stdin
+echo YourGitHubPersonalAccessTokenHere | docker login ghcr.io -u YourAccountOrGHOrgaNameHere --password-stdin
 ```
 
 Make sure to use a Personal Access Token as described in this post https://www.codecentric.de/wissens-hub/blog/github-container-registry with the following scopes (`repo`, `write:packages` and `delete:packages`):

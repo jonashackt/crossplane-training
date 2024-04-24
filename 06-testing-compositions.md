@@ -405,10 +405,23 @@ commands:
   - command: kubectl apply -f ../../../examples/objectstorage/claim.yaml
 ```
 
-Here we apply our Claim residing in the `examples` dir.
+Here we apply our Claim that we need to create in the `examples/objectstorage` dir as `claim.yaml`:
 
 
-
+```yaml
+apiVersion: crossplane.jonashackt.io/v1alpha1
+kind: ObjectStorage
+metadata:
+  namespace: default
+  name: managed-upbound-s3
+spec:
+  compositionRef:
+    name: objectstorage-composition
+  
+  parameters:
+    bucketName: crossplane-training-yourNameHere-kuttltest
+    region: eu-central-1
+```
 
 
 ## 6.9 Validate / Assert Resource rendering only (without AWS access)

@@ -37,19 +37,15 @@ Therefore head over to your GitHub account and create a new Repository now. Name
 
 ![](docs/composition-own-git-repository.png)
 
+Clone the repository locally via:
+
+```shell
+git clone git@github.com:yourGitHubUserNameHere/objectstorage-composition.git
+```
 
 ## 5.2 Create crossplane.yaml
 
 As [stated in the docs](https://docs.crossplane.io/latest/concepts/packages/#create-a-configuration) Crossplane has a feature where one can create Configuration Packages containing specific Compositions packaged in a OCI container. So let's build a Configuration Package from our AWS S3 Composition here.
-
-There's a template one could use to create the crossplane.yaml using the crossplane CLI: https://docs.crossplane.io/latest/cli/command-reference/#beta-xpkg-init 
-
-```shell
-crossplane beta xpkg init crossplane-training-s3 configuration-template
-```
-
-The command uses the following template: https://github.com/crossplane/configuration-template (one could provide arbitrary repositories to the command).
-
 
 Here's also a full example [`crossplane.yaml`](crossplane.yaml):
 
@@ -83,6 +79,14 @@ spec:
 Don't forget to add the `metadate.annotations` in order to prevent the error `crossplane: error: failed to build package: not exactly one package meta type` - see also https://stackoverflow.com/questions/78200917/crossplane-error-failed-to-build-package-not-exactly-one-package-meta-type
 
 Also we should define on which providers our Configuration depends on - and also on which Crossplane version.
+
+> 📝 There's a template one could use to create the crossplane.yaml using the crossplane CLI: https://docs.crossplane.io/latest/cli/command-reference/#beta-xpkg-init 
+
+```shell
+crossplane beta xpkg init objectstorage-composition configuration-template
+```
+
+The command uses the following template: https://github.com/crossplane/configuration-template (one could provide arbitrary repositories to the command).
 
 
 

@@ -270,7 +270,7 @@ spec:
     name: objectstorage-composition
   
   parameters:
-    bucketName: spring2024-bucket
+    bucketName: crossplane-training-yourNameHere
     region: eu-central-1
 ```
 

@@ -231,21 +231,30 @@ With this we should also be able to use a ENV var for our Configuration version 
 
 ## 5.6 Install the Configuration Package into management cluster
 
-As described in https://docs.crossplane.io/latest/concepts/packages/#install-a-configuration use a manifest like the following to install the Configuration. Therefore create a new file in the `apis` directory (since this is a Crossplane API / CRD we will be using) and name it `crossplane-training-s3.yaml` (just as our Composition is named):
+First delete your Composition and XRD in the management cluster:
+
+```shell
+kubectl delete -f apis/s3/composition.yaml
+kubectl delete -f apis/s3/definition.yaml
+```
+
+As described in https://docs.crossplane.io/latest/concepts/packages/#install-a-configuration use a manifest like the following to install the Configuration. 
+
+Therefore create a new file in the `apis` directory (since this is a Crossplane API / CRD we will be using) and name it `objectstorage-composition.yaml` (just as our Composition is named):
 
 ```yaml
 apiVersion: pkg.crossplane.io/v1
 kind: Configuration
 metadata:
-  name: crossplane-training-s3
+  name: objectstorage-composition
 spec:
-  package: ghcr.io/jonashackt/crossplane-training-s3:v0.0.1
+  package: ghcr.io/jonashackt/objectstorage-composition:v0.0.1
 ```
 
 Now install all APIs in the `apis` folder via:
 
 ```shell
-kubectl apply -f apis/
+kubectl apply -f apis/objectstorage-composition.yaml
 ```
 
 As you're already used to, create (or re-use) a Claim to use the newly installed API:

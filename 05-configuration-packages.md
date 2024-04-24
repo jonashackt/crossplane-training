@@ -112,7 +112,7 @@ Also appending `--verbose` makes a lot of sense to see what's going on.
 There's also a `crossplane xpkg push` command to publish the Configuration package. So let's create a new GitHub package matching our repository:
 
 ```shell
-crossplane xpkg push ghcr.io/jonashackt/crossplane-training-s3:v0.0.1
+crossplane xpkg push ghcr.io/yourGitHubUserName/objectstorage-composition:v0.0.1
 ```
 
 You can leverage the Container image tag as version number for your Configuration here.

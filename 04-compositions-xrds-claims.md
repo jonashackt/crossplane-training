@@ -571,7 +571,7 @@ Now let's enhance your already existant Composition using all the needed Managed
 
 Therefore add all additional Managed Resources to the file `apis/s3/composition.yaml`.
 
-> 📝 We already did this in the last section [3.3 Using multiple Managed Resources (public accessible S3 Bucket)](#33-using-multiple-managed-resources-public-accessible-s3-bucket)). Just have a look over there and copy the Managed Resources for a start. 
+> 📝 We already did this in the last section [3.3 Using multiple Managed Resources (public accessible S3 Bucket)](https://github.com/jonashackt/crossplane-training/blob/main/03-working-with-managed-resources.md#33-using-multiple-managed-resources-public-accessible-s3-bucket)). Just have a look over there and copy the Managed Resources for a start. 
 
 After adding the MRs try to use Patches, PatchSets and Patch transform operations to insert the values needed.
 

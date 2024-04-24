@@ -134,7 +134,7 @@ So we need to login to GitHub Container Registry first in order to be able to pu
 echo YourGitHubPersonalAccessTokenHere | docker login ghcr.io -u YourAccountOrGHOrgaNameHere --password-stdin
 ```
 
-Make sure to use a Personal Access Token as described in this post https://www.codecentric.de/wissens-hub/blog/github-container-registry with the following scopes (`repo`, `write:packages` and `delete:packages`):
+Make sure to use a Personal Access Token as described in this post https://www.codecentric.de/wissens-hub/blog/github-container-registry. Head over to your user `Settings`/`Developer Settings` and to `Personal Access Tokens`. Click on `Personal access tokens (classic)` and create a classic token with the following scopes (`repo`, `write:packages` and `delete:packages`):
 
 ![](docs/github-container-registry-pat-scopes.png)
 

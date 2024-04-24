@@ -168,7 +168,7 @@ kind delete clusters crossplane-test
 
 ## 6.4 Install AWS Provider in kuttl TestSuite
 
-The Upbound AWS Provider Family for S3 needed for our objectstorage Composition is already located in [`upbound/provider-aws/provider/provider-aws-s3.yaml`](upbound/provider-aws/provider/provider-aws-s3.yaml):
+The Upbound AWS Provider Family for S3 needed for our objectstorage Composition needs to be provided in [`upbound/provider-aws/provider/provider-aws-s3.yaml`](upbound/provider-aws/provider/provider-aws-s3.yaml):
 
 ```yaml
 apiVersion: pkg.crossplane.io/v1

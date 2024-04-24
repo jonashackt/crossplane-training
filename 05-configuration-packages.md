@@ -88,6 +88,12 @@ crossplane beta xpkg init objectstorage-composition configuration-template
 
 The command uses the following template: https://github.com/crossplane/configuration-template (one could provide arbitrary repositories to the command).
 
+> 📝 The command will create a `apis/definition.yaml` and `apis/composition.yaml` also. You should delete them before proceeding:
+
+```shell
+# Don't check in Configuration packages
+*.xpkg
+```
 
 
 
@@ -150,6 +156,9 @@ $ crossplane xpkg push ghcr.io/jonashackt/crossplane-eks-cluster:v0.0.1 --domain
 2024-03-21T16:39:48+01:00	DEBUG	No profile specified, using default profile
 2024-03-21T16:39:49+01:00	DEBUG	Pushed package	{"path": "crossplane-eks-cluster-7badc365c06a.xpkg", "ref": "ghcr.io/jonashackt/crossplane-eks-cluster:v0.0.1"}
 ```
+
+> 📝 Add the `.xpkg` files to your `.gitignore`!
+
 
 Now head over to your GitHub Organisation's `Packages` tab and search for the newly created package:
 

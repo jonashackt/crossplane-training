@@ -248,7 +248,7 @@ kindContext: crossplane-test
 ```
 
 
-The final bit is to configure the AWS Provider via a `ProviderConfig` which is already located in [`upbound/provider-aws/config/provider-config-aws.yaml`](upbound/provider-aws/config/provider-config-aws.yaml):
+The final bit is to configure the AWS Provider via a `ProviderConfig` which needs to be located in [`upbound/provider-aws/config/provider-config-aws.yaml`](upbound/provider-aws/config/provider-config-aws.yaml). Create it now:
 
 ```yaml
 apiVersion: aws.upbound.io/v1beta1
